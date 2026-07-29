@@ -111,18 +111,21 @@
 - Consumes: approved project title `Top Comparativos` and slug `top-comparativos`.
 - Produces: a ready Sites checkout with `npm test` and `npm run test:watch`.
 
-- [ ] **Step 1: Create the Site checkout through the required lifecycle command**
+- [ ] **Step 1: Reuse the existing Site checkout created through the required lifecycle command**
 
-Run from the workspace:
+The Sites checkout already exists at:
 
 ```bash
-python3 "/root/.codex/plugins/cache/openai-curated-remote/sites/0.1.13/skills/sites-hosting/scripts/sites.py" create \
-  --title "Top Comparativos" \
-  --slug "top-comparativos" \
-  --starter vinext
+/workspace/sites/top-comparativos
 ```
 
-Expected: JSON with `"status":"ready"` and a `checkout_path`. Use that exact path for every later command.
+The isolated implementation worktree is:
+
+```bash
+/workspace/sites/top-comparativos/.worktrees/foundation
+```
+
+Do not run `sites.py create` again. Confirm `.openai/hosting.json` exists and keep its `project_id` unchanged.
 
 - [ ] **Step 2: Write the initial smoke test**
 
@@ -178,12 +181,14 @@ Add these dev dependencies:
 npm install -D vitest jsdom @testing-library/react @testing-library/jest-dom @vitejs/plugin-react
 ```
 
-Add scripts to `package.json`:
+Preserve the starter's existing rendered-build test by renaming that command to `test:rendered`. Add the following scripts to `package.json`:
 
 ```json
 {
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run && npm run test:rendered",
+    "test:unit": "vitest run",
+    "test:rendered": "npm run build && node --test tests/rendered-html.test.mjs",
     "test:watch": "vitest"
   }
 }
@@ -1441,18 +1446,18 @@ Update `README.md` with:
 - statement that PA API is not active in this phase;
 - link to `docs/specs/top-comparativos-design.md`.
 
-- [ ] **Step 7: Create the first hosted checkpoint**
-
-Use the Sites lifecycle checkpoint command from the current Sites hosting skill and wait for the deployment-status verification to reach a terminal successful state.
-
-Expected: a verified production checkpoint URL surfaced to Olavo.
-
-- [ ] **Step 8: Commit the validated foundation**
+- [ ] **Step 7: Commit the validated foundation**
 
 ```bash
 git add db/seed.ts tests/smoke/foundation.test.ts README.md
 git commit -m "chore: validate Top Comparativos foundation"
 ```
+
+- [ ] **Step 8: Create the first hosted checkpoint**
+
+Use the Sites lifecycle checkpoint command from the current Sites hosting skill and wait for the deployment-status verification to reach a terminal successful state.
+
+Expected: a verified production checkpoint URL surfaced to Olavo, built from the exact committed source state.
 
 ---
 
@@ -1483,4 +1488,3 @@ The following subsystems require their own implementation plans after this found
    - click tracking;
    - Amazon report import;
    - scoring recalibration.
-
