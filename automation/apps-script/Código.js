@@ -6,7 +6,7 @@ const CONFIG = {
 };
 
 function onOpen() {
-  SpreadsheetApp.getUi()
+  const menu = SpreadsheetApp.getUi()
     .createMenu('Automação SEO')
     .addItem(
       '1. Pesquisar pauta selecionada',
@@ -25,8 +25,9 @@ function onOpen() {
     .addItem(
       '4. Gerar imagens com Nano Banana',
       'enfileirarImagensSelecionadas'
-    )
-    .addToUi();
+    );
+
+  topcAdicionarUploadMenu_(menu).addToUi();
 }
 
 function pesquisarPautaSelecionada() {
