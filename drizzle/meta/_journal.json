@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1785343449872,
+      "tag": "0000_exotic_korg",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785367822714,
+      "tag": "0001_cute_thing",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785892255108,
+      "tag": "0002_naive_micromacro",
+      "breakpoints": true
+    }
+  ]
+}
