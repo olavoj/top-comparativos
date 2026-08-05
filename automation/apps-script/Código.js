@@ -2760,6 +2760,9 @@ const internas = midias.filter(function(midia) {
 
 let indiceInterna = 0;
 
+  const blocks = [];
+  const sources = [];
+
   let encontrouArtigo = false;
   let coletandoFontes = false;
   let titulo = '';
