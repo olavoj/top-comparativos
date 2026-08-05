@@ -2747,6 +2747,8 @@ const resultado = topcConverterDocumentoEditorial_(
 
 function topcConverterDocumentoEditorial_(documento, midias) {
   const body = documento.getBody();
+  const blocks = [];
+  const sources = [];
 
  midias = midias || [];
 
