@@ -3179,6 +3179,8 @@ function enviarRascunhoSiteSelecionado() {
   const retorno = JSON.parse(texto);
   const article = retorno.article;
 
+  topcPersistirVersaoSite_(aba, linha, article.updatedAt);
+
   const preview =
     TOPC_SITE_AUTOMATION.BASE_URL +
     '/admin/artigos/' +
