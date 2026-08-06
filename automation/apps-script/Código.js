@@ -27,7 +27,9 @@ function onOpen() {
       'enfileirarImagensSelecionadas'
     );
 
-  topcAdicionarUploadMenu_(menu).addToUi();
+  topcAdicionarPublishMenu_(
+    topcAdicionarUploadMenu_(menu)
+  ).addToUi();
 }
 
 function pesquisarPautaSelecionada() {
