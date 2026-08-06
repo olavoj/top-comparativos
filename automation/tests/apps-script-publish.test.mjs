@@ -16,7 +16,8 @@ const validContext = {
   id: '1',
   slug: 'guia-completo-potes-hermeticos',
   linkFinal: 'https://docs.google.com/open?id=doc',
-  statusImagens: 'Concluído'
+  statusImagens: 'Concluído',
+  versaoSite: '2026-08-05T21:59:46.49759321611Z'
 };
 
 const validEnvelope = {
@@ -28,6 +29,67 @@ const validEnvelope = {
   }
 };
 
+function versionSheet(headers) {
+  const values = new Map();
+  return {
+    values,
+    getLastColumn: () => headers.length,
+    getRange(row, column) {
+      return {
+        getDisplayValues: () => [headers],
+        setValue(value) {
+          values.set(`${row}:${column}`, value);
+          if (row === 1 && column > headers.length) headers.push(value);
+        }
+      };
+    }
+  };
+}
+
+test('grava a versão retornada pelo site na coluna existente', () => {
+  const api = loadPublish();
+  const sheet = versionSheet(['ID', 'Versão no site']);
+
+  api.topcPersistirVersaoSite_(
+    sheet,
+    2,
+    '2026-08-05T21:59:46.49759321611Z'
+  );
+
+  assert.equal(
+    sheet.values.get('2:2'),
+    '2026-08-05T21:59:46.49759321611Z'
+  );
+});
+
+test('cria a coluna Versão no site uma única vez quando ausente', () => {
+  const api = loadPublish();
+  const sheet = versionSheet(['ID']);
+
+  api.topcPersistirVersaoSite_(
+    sheet,
+    2,
+    '2026-08-05T21:59:46.49759321611Z'
+  );
+
+  assert.equal(sheet.values.get('1:2'), 'Versão no site');
+  assert.equal(
+    sheet.values.get('2:2'),
+    '2026-08-05T21:59:46.49759321611Z'
+  );
+});
+
+test('rejeita versão vazia antes de alterar a planilha', () => {
+  const api = loadPublish();
+  const sheet = versionSheet(['ID']);
+
+  assert.throws(
+    () => api.topcPersistirVersaoSite_(sheet, 2, '   '),
+    /versão/i
+  );
+  assert.equal(sheet.values.size, 0);
+});
+
 test('rejeita pauta sem Status das imagens Concluído', () => {
   const api = loadPublish();
   assert.throws(() => api.topcValidarPrePublicacao_(
@@ -35,6 +97,15 @@ test('rejeita pauta sem Status das imagens Concluído', () => {
     validEnvelope,
     [{ mediaKey: 'capa.webp' }]
   ), /Status das imagens/);
+});
+
+test('rejeita publicação sem Versão no site', () => {
+  const api = loadPublish();
+  assert.throws(() => api.topcValidarPrePublicacao_(
+    { ...validContext, versaoSite: '' },
+    validEnvelope,
+    [{ mediaKey: 'capa.webp' }]
+  ), /Versão no site/);
 });
 
 for (const [name, patch, message] of [
@@ -99,12 +170,13 @@ test('publica automaticamente pela rota HMAC sem abrir confirmação', () => {
     'ID', 'Título', 'Tipo', 'Pilar relacionado', 'Palavra-chave principal',
     'Intenção', 'Categoria', 'Status', 'Prioridade', 'Data prevista', 'Slug',
     'Link da pesquisa', 'Link do artigo', 'Link da revisão', 'Link final',
-    'Status das imagens', 'Responsável', 'Observações'
+    'Status das imagens', 'Responsável', 'Observações', 'Versão no site'
   ];
   const values = [
     '1', 'Guia', 'Pilar', '', 'potes', 'Informacional', 'Casa', '', '', '',
     'guia-completo-potes-hermeticos', '', '', '',
-    'https://docs.google.com/open?id=doc', 'Concluído', 'Olavo', ''
+    'https://docs.google.com/open?id=doc', 'Concluído', 'Olavo', '',
+    '2026-08-05T21:59:46.49759321611Z'
   ];
   const sheet = {
     getName: () => 'Pauta editorial',
@@ -140,7 +212,7 @@ test('publica automaticamente pela rota HMAC sem abrir confirmação', () => {
   assert.deepEqual(request, {
     path: '/api/automation/articles/pauta-1/publish',
     sourceKey: 'pauta-1',
-    body: '{}',
+    body: '{"expectedUpdatedAt":"2026-08-05T21:59:46.49759321611Z"}',
     contentType: 'application/json'
   });
   assert.match(toast[0], /publicado/i);
