@@ -2728,8 +2728,8 @@ const resultado = topcConverterDocumentoEditorial_(
     searchIntent: intencao.substring(0, 100),
 
     seo: {
-      title: resultado.title.substring(0, 160),
-      description: resultado.excerpt.substring(0, 300)
+      title: resultado.seoTitle.substring(0, 160),
+      description: resultado.seoDescription.substring(0, 300)
     },
 
     document: {
@@ -3064,12 +3064,12 @@ const texto = paragrafo.getText().trim();
     );
   }
 
-  return {
+  return topcNormalizarRevisaoEditorial_({
     title: titulo,
     excerpt: primeiroParagrafo,
     blocks: blocks,
     sources: sources
-  };
+  });
 }
 
 
