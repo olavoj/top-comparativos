@@ -2,6 +2,11 @@ function topcValidarPrePublicacao_(contexto, envelope, midias) {
   if (!contexto.id) throw new Error('A pauta não possui ID.');
   if (!contexto.slug) throw new Error('A pauta não possui Slug.');
   if (!contexto.linkFinal) throw new Error('A pauta não possui Link final.');
+  if (!contexto.versaoSite) {
+    throw new Error(
+      'A pauta não possui Versão no site. Envie o rascunho ao site novamente.'
+    );
+  }
   if (contexto.statusImagens !== 'Concluído') {
     throw new Error('Status das imagens precisa estar como Concluído.');
   }
@@ -27,6 +32,28 @@ function topcValidarPrePublicacao_(contexto, envelope, midias) {
       );
     }
   });
+}
+
+function topcPersistirVersaoSite_(aba, linha, updatedAt) {
+  const versao = String(updatedAt || '').trim();
+  if (!versao) {
+    throw new Error('A versão retornada pelo Site está vazia.');
+  }
+
+  const ultimaColuna = aba.getLastColumn();
+  const cabecalhos = aba
+    .getRange(1, 1, 1, ultimaColuna)
+    .getDisplayValues()[0];
+  let colunaVersao = cabecalhos.findIndex(function(header) {
+    return String(header).trim() === 'Versão no site';
+  }) + 1;
+
+  if (!colunaVersao) {
+    colunaVersao = ultimaColuna + 1;
+    aba.getRange(1, colunaVersao).setValue('Versão no site');
+  }
+
+  aba.getRange(linha, colunaVersao).setValue(versao);
 }
 
 function topcAdicionarPublishMenu_(menu) {
@@ -65,7 +92,8 @@ function topcObterContextoPublicacao_(aba, linha) {
     id: String(dados['ID'] || '').trim(),
     slug: String(dados['Slug'] || '').trim(),
     linkFinal: String(dados['Link final'] || '').trim(),
-    statusImagens: String(dados['Status das imagens'] || '').trim()
+    statusImagens: String(dados['Status das imagens'] || '').trim(),
+    versaoSite: String(dados['Versão no site'] || '').trim()
   };
 }
 
@@ -85,7 +113,9 @@ function publicarArtigoSiteSelecionado() {
   topcValidarPrePublicacao_(contexto, envelope, midias);
 
   const sourceKey = 'pauta-' + contexto.id;
-  const body = '{}';
+  const body = JSON.stringify({
+    expectedUpdatedAt: contexto.versaoSite
+  });
   const resposta = topcEnviarAssinado_(
     '/api/automation/articles/' +
       encodeURIComponent(sourceKey) +
