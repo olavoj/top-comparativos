@@ -1,0 +1,35 @@
+name: Deploy Apps Script
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install clasp
+        run: npm install --global @google/clasp
+
+      - name: Configure clasp authentication
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || { echo "Missing CLASPRC_JSON secret"; exit 1; }
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Push Apps Script
+        working-directory: automation/apps-script
+        run: clasp push
