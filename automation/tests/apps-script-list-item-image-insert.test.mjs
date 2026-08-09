@@ -15,6 +15,12 @@ test('inserção de imagem aceita PARAGRAPH e LIST_ITEM sem conversão forçada'
   assert.doesNotMatch(codigo, /getParent\(\)\.asParagraph\(\)/);
 });
 
+test('escapa marcador antes de passá-lo ao findText do Google Docs', () => {
+  const codigo = source();
+  assert.match(codigo, /function topcEscaparRegex_/);
+  assert.match(codigo, /findText\(topcEscaparRegex_\(marcador\)\)/);
+});
+
 test('reparo reabre falhas causadas por LIST_ITEM para nova tentativa', () => {
   const codigo = source();
   assert.match(codigo, /LIST_ITEM/);
