@@ -6,6 +6,17 @@ function topcAdicionarUploadMenu_(menu) {
   return menu.addSeparator().addItem('5. Enviar imagens ao site', 'enviarImagensSiteSelecionadas');
 }
 
+function topcNormalizarMidiasPorArquivo_(midias) {
+  return (midias || []).map(function(media) {
+    if (!media || !media.fileId) return media;
+    const arquivo = DriveApp.getFileById(media.fileId);
+    const contentType = String(arquivo.getBlob().getContentType() || '').toLowerCase();
+    return Object.assign({}, media, {
+      mediaKey: topcNormalizarMediaKeyPorMime_(media.mediaKey, contentType)
+    });
+  });
+}
+
 function topcEnviarBytesAssinados_(path, sourceKey, bytes, contentType, mediaHeaders) {
   const secret = PropertiesService.getScriptProperties().getProperty('AUTOMATION_HMAC_SECRET');
   if (!secret) throw new Error('AUTOMATION_HMAC_SECRET não encontrado.');
@@ -32,22 +43,16 @@ function topcEnviarImagemSite_(sourceKey, media, referencedMediaKeys) {
   const blob = arquivo.getBlob();
   const bytes = blob.getBytes();
   const contentType = String(blob.getContentType() || '').toLowerCase();
-  const mediaNormalizada = Object.assign({}, media, {
-    mediaKey: topcNormalizarMediaKeyPorMime_(media.mediaKey, contentType)
-  });
-  const refsNormalizadas = referencedMediaKeys.map(function(key) {
-    return key === media.mediaKey ? mediaNormalizada.mediaKey : key;
-  });
 
-  topcValidarUploadMidia_(mediaNormalizada, contentType, bytes.length, refsNormalizadas);
+  topcValidarUploadMidia_(media, contentType, bytes.length, referencedMediaKeys);
   const sha256 = topcSha256BytesHex_(bytes);
-  const mediaHeaders = topcMontarCabecalhosMidia_(mediaNormalizada, sha256);
+  const mediaHeaders = topcMontarCabecalhosMidia_(media, sha256);
   const path = '/api/automation/articles/' + encodeURIComponent(sourceKey) + '/media';
   const resposta = topcEnviarBytesAssinados_(path, sourceKey, bytes, contentType, mediaHeaders);
   const codigo = resposta.getResponseCode();
   const texto = resposta.getContentText();
-  topcValidarRespostaUpload_(codigo, mediaNormalizada.mediaKey, texto);
-  return { mediaKey: mediaNormalizada.mediaKey, status: codigo === 201 ? 'created' : 'reused' };
+  topcValidarRespostaUpload_(codigo, media.mediaKey, texto);
+  return { mediaKey: media.mediaKey, status: codigo === 201 ? 'created' : 'reused' };
 }
 
 function enviarImagensSiteSelecionadas() {
@@ -65,7 +70,7 @@ function enviarImagensSiteSelecionadas() {
   if (!id) throw new Error('A pauta não possui ID.');
   if (!slug) throw new Error('A pauta não possui Slug.');
   const sourceKey = 'pauta-' + id;
-  const midias = topcObterMidiasConcluidas_(linha, slug);
+  const midias = topcNormalizarMidiasPorArquivo_(topcObterMidiasConcluidas_(linha, slug));
   if (!midias.length) throw new Error('Nenhuma imagem concluída foi encontrada para a pauta.');
   const envelope = topcMontarEnvelopeSelecionado_();
   const referencedMediaKeys = envelope.document.blocks.filter(function(block) { return block.type === 'image'; }).map(function(block) { return block.mediaKey; });
