@@ -1,11 +1,15 @@
 // Compatibilidade para inserção de imagens quando a âncora está em uma lista.
 // O prefixo ZZ mantém este override depois do Código.js no fluxo clasp atual.
+function topcEscaparRegex_(texto) {
+  return String(texto).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function inserirImagemNoDocumento_(tarefa, arquivo) {
   const documento = DocumentApp.openById(tarefa.documentoFinalId);
   const corpo = documento.getBody();
   const blob = arquivo.getBlob();
   const marcador = tarefa.marcador;
-  const resultado = corpo.findText(marcador);
+  const resultado = corpo.findText(topcEscaparRegex_(marcador));
 
   if (!resultado) {
     documento.saveAndClose();
@@ -28,7 +32,6 @@ function inserirImagemNoDocumento_(tarefa, arquivo) {
   }
 
   const container = pai;
-  const texto = container.getText();
   const inicio = resultado.getStartOffset();
   const fim = resultado.getEndOffsetInclusive();
 
