@@ -20,6 +20,10 @@ function topcAdicionarFerramentasMenu_(menu, ui) {
     .addSubMenu(
       ui.createMenu('Ferramentas')
         .addItem('Testar conexão com o site', 'testarConexaoSite')
+        .addItem(
+          'Diagnosticar imagens da pauta',
+          'diagnosticarImagensDaPauta'
+        )
         .addItem('Reparar fila de imagens', 'repararFilaImagensAtual')
         .addItem(
           'Reabrir falhas de lista selecionadas',
@@ -1676,6 +1680,26 @@ function calcularQuantidadeImagens_(tipo) {
   return 3;
 }
 
+function topcMapearParagrafos_(corpo) {
+  const paragrafos = [];
+
+  for (let i = 0; i < corpo.getNumChildren(); i++) {
+    const filho = corpo.getChild(i);
+
+    const ehParagrafo =
+      filho.getType() === DocumentApp.ElementType.PARAGRAPH;
+
+    paragrafos.push({
+      texto: filho.getText ? filho.getText() : '',
+      ehH1: ehParagrafo &&
+        filho.asParagraph().getHeading() ===
+          DocumentApp.ParagraphHeading.HEADING1
+    });
+  }
+
+  return paragrafos;
+}
+
 function garantirMarcadoresNoDocumento_(
   documentoId,
   marcadores
@@ -1686,22 +1710,29 @@ function garantirMarcadoresNoDocumento_(
 
   const corpo = documento.getBody();
   const textoAtual = corpo.getText();
+  const paragrafos = topcMapearParagrafos_(corpo);
 
-  marcadores.forEach(function (item, indice) {
+  const h1 = topcIndiceDoH1_(paragrafos);
+  let fim = topcIndiceFimDoArtigo_(paragrafos);
+
+  // A capa entra logo depois do H1 e as internas antes das fontes.
+  // Fora desses limites a imagem fica no cabeçalho da revisão ou no
+  // rodapé, e o envelope do site nunca chega a referenciá-la.
+  marcadores.forEach(function (item) {
     if (textoAtual.includes(item.marcador)) {
       return;
     }
 
-    if (item.tipo === 'Capa') {
-      const posicao = Math.min(
-        3,
-        corpo.getNumChildren()
-      );
+    const posicao = item.tipo === 'Capa'
+      ? (h1 >= 0 ? h1 + 1 : Math.min(3, corpo.getNumChildren()))
+      : fim;
 
-      corpo.insertParagraph(
-        posicao,
-        item.marcador
-      );
+    if (posicao >= 0 && posicao <= corpo.getNumChildren()) {
+      corpo.insertParagraph(posicao, item.marcador);
+
+      if (fim >= 0 && posicao <= fim) {
+        fim += 1;
+      }
     } else {
       corpo.appendParagraph(item.marcador);
     }

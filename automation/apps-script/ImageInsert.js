@@ -4,12 +4,61 @@ function topcEscaparRegex_(texto) {
   return String(texto).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Índice do elemento de primeiro nível que contém o resultado.
+function topcIndiceNoCorpo_(corpo, elemento) {
+  let atual = elemento;
+
+  while (atual) {
+    const pai = atual.getParent();
+
+    if (!pai) return -1;
+    if (pai.getType() === DocumentApp.ElementType.BODY_SECTION) {
+      return corpo.getChildIndex(atual);
+    }
+
+    atual = pai;
+  }
+
+  return -1;
+}
+
+// O mesmo marcador costuma aparecer na lista de PENDÊNCIAS da revisão e
+// no corpo do artigo. A ocorrência do corpo é a que vale; a primeira,
+// não. Sem isso a imagem entra antes do H1 e some do envelope.
+function topcLocalizarMarcadorNoArtigo_(corpo, marcador, indiceInicio) {
+  const padrao = topcEscaparRegex_(marcador);
+  let resultado = corpo.findText(padrao);
+  const primeiro = resultado;
+  let visitados = 0;
+
+  // O limite evita varredura infinita caso findText devolva sempre a
+  // mesma ocorrência; o gatilho de imagens roda sozinho a cada minuto.
+  while (resultado && visitados < 200) {
+    visitados += 1;
+
+    const indice = topcIndiceNoCorpo_(corpo, resultado.getElement());
+
+    if (indice >= indiceInicio) {
+      return resultado;
+    }
+
+    resultado = corpo.findText(padrao, resultado);
+  }
+
+  return primeiro;
+}
+
 function inserirImagemNoDocumento_(tarefa, arquivo) {
   const documento = DocumentApp.openById(tarefa.documentoFinalId);
   const corpo = documento.getBody();
   const blob = arquivo.getBlob();
   const marcador = tarefa.marcador;
-  const resultado = corpo.findText(topcEscaparRegex_(marcador));
+
+  const resultado = topcLocalizarMarcadorNoArtigo_(
+    corpo,
+    marcador,
+    topcIndiceInicioDoArtigo_(topcMapearParagrafos_(corpo))
+  );
 
   if (!resultado) {
     documento.saveAndClose();

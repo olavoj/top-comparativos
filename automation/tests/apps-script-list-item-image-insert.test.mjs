@@ -18,7 +18,8 @@ test('inserção de imagem aceita PARAGRAPH e LIST_ITEM sem conversão forçada'
 test('escapa marcador antes de passá-lo ao findText do Google Docs', () => {
   const codigo = source();
   assert.match(codigo, /function topcEscaparRegex_/);
-  assert.match(codigo, /findText\(topcEscaparRegex_\(marcador\)\)/);
+  assert.match(codigo, /const padrao = topcEscaparRegex_\(marcador\)/);
+  assert.doesNotMatch(codigo, /findText\((?!padrao)/);
 });
 
 test('reparo reabre falhas causadas por LIST_ITEM para nova tentativa', () => {
