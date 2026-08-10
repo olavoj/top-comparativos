@@ -1,36 +1,17 @@
+function topcEhInicioH1_(bloco) {
+  return bloco && bloco.type === 'heading' && Number(bloco.level) === 1;
+}
+
 function topcNormalizarRevisaoEditorial_(resultado) {
   const marcador = '=== CONTEÚDO PARA PUBLICAÇÃO ===';
   const blocos = Array.isArray(resultado.blocks) ? resultado.blocks : [];
   const fontes = Array.isArray(resultado.sources) ? resultado.sources : [];
+  const indiceMarcador = blocos.findIndex(function (bloco) { return bloco && bloco.type === 'paragraph' && String(bloco.text || '').trim().toUpperCase() === marcador; });
 
-  const indiceMarcador = blocos.findIndex(function (bloco) {
-    return bloco && bloco.type === 'paragraph' &&
-      String(bloco.text || '').trim().toUpperCase() === marcador;
-  });
+  if (indiceMarcador === -1) return { title: resultado.title, excerpt: resultado.excerpt, seoTitle: resultado.title, seoDescription: resultado.excerpt, blocks: blocos, sources: fontes };
 
-  if (indiceMarcador === -1) {
-    return {
-      title: resultado.title,
-      excerpt: resultado.excerpt,
-      seoTitle: resultado.title,
-      seoDescription: resultado.excerpt,
-      blocks: blocos,
-      sources: fontes
-    };
-  }
-
-  const imagensPreservadas = blocos.slice(0, indiceMarcador).filter(function (bloco) {
-    return bloco && bloco.type === 'image';
-  });
-
-  const rotulos = {
-    'TÍTULO SEO:': 'seoTitle',
-    'META DESCRIPTION:': 'seoDescription',
-    'SLUG:': 'slug',
-    'PALAVRA-CHAVE PRINCIPAL:': 'primaryKeyword',
-    'PALAVRAS-CHAVE SECUNDÁRIAS:': 'secondaryKeywords'
-  };
-
+  const imagensPreservadas = blocos.slice(0, indiceMarcador).filter(function (bloco) { return bloco && bloco.type === 'image'; });
+  const rotulos = { 'TÍTULO SEO:': 'seoTitle', 'META DESCRIPTION:': 'seoDescription', 'SLUG:': 'slug', 'PALAVRA-CHAVE PRINCIPAL:': 'primaryKeyword', 'PALAVRAS-CHAVE SECUNDÁRIAS:': 'secondaryKeywords' };
   const metadados = {};
   const conteudo = [];
   let lendoMetadados = true;
@@ -38,25 +19,26 @@ function topcNormalizarRevisaoEditorial_(resultado) {
 
   while (indice < blocos.length) {
     const bloco = blocos[indice];
-
-    if (lendoMetadados && bloco && bloco.type === 'image') {
-      conteudo.push(bloco);
-      indice += 1;
-      continue;
-    }
+    if (lendoMetadados && bloco && bloco.type === 'image') { conteudo.push(bloco); indice += 1; continue; }
 
     if (lendoMetadados && bloco && bloco.type === 'paragraph') {
       const texto = String(bloco.text || '').trim();
       const chave = rotulos[texto.toUpperCase()];
-
-      if (chave) {
-        const valor = blocos[indice + 1];
-        if (valor && valor.type === 'paragraph') {
-          metadados[chave] = String(valor.text || '').trim();
-          indice += 2;
-        } else {
+      if (chave === 'secondaryKeywords') {
+        const keywords = [];
+        indice += 1;
+        while (indice < blocos.length && !topcEhInicioH1_(blocos[indice])) {
+          const candidato = blocos[indice];
+          if (candidato && candidato.type === 'image') { conteudo.push(candidato); indice += 1; continue; }
+          if (candidato && candidato.type === 'paragraph') keywords.push(String(candidato.text || '').trim());
           indice += 1;
         }
+        metadados.secondaryKeywords = keywords.filter(Boolean).join(', ');
+        continue;
+      }
+      if (chave) {
+        const valor = blocos[indice + 1];
+        if (valor && valor.type === 'paragraph') { metadados[chave] = String(valor.text || '').trim(); indice += 2; } else indice += 1;
         continue;
       }
     }
@@ -67,19 +49,7 @@ function topcNormalizarRevisaoEditorial_(resultado) {
   }
 
   const blocosPublicos = imagensPreservadas.concat(conteudo);
-  const primeiroParagrafo = blocosPublicos.find(function (bloco) {
-    return bloco && bloco.type === 'paragraph' && String(bloco.text || '').trim();
-  });
-  const excerpt = primeiroParagrafo
-    ? String(primeiroParagrafo.text).trim()
-    : String(resultado.excerpt || '').trim();
-
-  return {
-    title: resultado.title,
-    excerpt: excerpt,
-    seoTitle: metadados.seoTitle || resultado.title,
-    seoDescription: metadados.seoDescription || excerpt,
-    blocks: blocosPublicos,
-    sources: fontes
-  };
+  const primeiroParagrafo = blocosPublicos.find(function (bloco) { return bloco && bloco.type === 'paragraph' && String(bloco.text || '').trim(); });
+  const excerpt = primeiroParagrafo ? String(primeiroParagrafo.text).trim() : String(resultado.excerpt || '').trim();
+  return { title: resultado.title, excerpt: excerpt, seoTitle: metadados.seoTitle || resultado.title, seoDescription: metadados.seoDescription || excerpt, blocks: blocosPublicos, sources: fontes };
 }
