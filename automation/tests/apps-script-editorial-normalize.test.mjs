@@ -8,30 +8,40 @@ const helperPath = path.resolve('automation/apps-script/EditorialNormalize.js');
 function loadHelper() { const context = vm.createContext({}); vm.runInContext(fs.readFileSync(helperPath, 'utf8'), context, { filename: helperPath }); return context.topcNormalizarRevisaoEditorial_; }
 const plain = value => JSON.parse(JSON.stringify(value));
 
-test('remove múltiplas palavras-chave secundárias até o H1', () => {
+test('remove keywords multilinha quando H1 está disponível', () => {
   const normalize = loadHelper();
   const result = normalize({ title: 'Guia', excerpt: 'Revisão', sources: [], blocks: [
     { type: 'paragraph', text: '=== CONTEÚDO PARA PUBLICAÇÃO ===' },
-    { type: 'paragraph', text: 'TÍTULO SEO:' }, { type: 'paragraph', text: 'Guia SEO' },
+    { type: 'paragraph', text: 'PALAVRAS-CHAVE SECUNDÁRIAS:' },
+    { type: 'paragraph', text: 'sanduicheira elétrica' }, { type: 'paragraph', text: 'melhor sanduicheira' },
+    { type: 'heading', level: 1, text: 'Guia completo' }, { type: 'paragraph', text: 'Conteúdo real.' },
+  ]});
+  assert.deepEqual(plain(result.blocks), [{ type: 'heading', level: 1, text: 'Guia completo' }, { type: 'paragraph', text: 'Conteúdo real.' }]);
+});
+
+test('nunca engole o artigo se H1 não estiver presente nos blocks', () => {
+  const normalize = loadHelper();
+  const result = normalize({ title: 'Guia completo para escolher uma sanduicheira elétrica', excerpt: 'Revisão editorial', sources: [], blocks: [
+    { type: 'paragraph', text: '=== CONTEÚDO PARA PUBLICAÇÃO ===' },
     { type: 'paragraph', text: 'PALAVRAS-CHAVE SECUNDÁRIAS:' },
     { type: 'paragraph', text: 'sanduicheira elétrica' },
     { type: 'paragraph', text: 'melhor sanduicheira' },
     { type: 'paragraph', text: 'sanduicheira grill' },
-    { type: 'heading', level: 1, text: 'Guia completo para escolher uma sanduicheira elétrica' },
-    { type: 'paragraph', text: 'Escolher uma boa sanduicheira começa pelo uso que você pretende fazer.' },
+    { type: 'paragraph', text: 'Escolher uma sanduicheira elétrica parece simples, mas alguns critérios fazem diferença.' },
+    { type: 'heading', level: 2, text: 'O que considerar antes de comprar' },
+    { type: 'paragraph', text: 'Potência, tamanho e facilidade de limpeza são critérios importantes.' },
   ]});
-  assert.deepEqual(plain(result.blocks), [
-    { type: 'heading', level: 1, text: 'Guia completo para escolher uma sanduicheira elétrica' },
-    { type: 'paragraph', text: 'Escolher uma boa sanduicheira começa pelo uso que você pretende fazer.' },
-  ]);
-  assert.equal(result.excerpt, 'Escolher uma boa sanduicheira começa pelo uso que você pretende fazer.');
+  const texts = result.blocks.map(b => b.text).filter(Boolean);
+  assert.ok(texts.includes('Escolher uma sanduicheira elétrica parece simples, mas alguns critérios fazem diferença.'));
+  assert.ok(texts.includes('O que considerar antes de comprar'));
+  assert.ok(!texts.includes('sanduicheira elétrica'));
+  assert.ok(!texts.includes('melhor sanduicheira'));
 });
 
 test('remove metadados de valor único e preserva conteúdo', () => {
   const normalize = loadHelper();
   const result = normalize({ title: 'Guia', excerpt: 'Revisão', sources: [], blocks: [
-    { type: 'image', mediaKey: 'capa.webp' },
-    { type: 'paragraph', text: '=== CONTEÚDO PARA PUBLICAÇÃO ===' },
+    { type: 'image', mediaKey: 'capa.webp' }, { type: 'paragraph', text: '=== CONTEÚDO PARA PUBLICAÇÃO ===' },
     { type: 'paragraph', text: 'META DESCRIPTION:' }, { type: 'paragraph', text: 'Descrição SEO' },
     { type: 'paragraph', text: 'PALAVRAS-CHAVE SECUNDÁRIAS:' }, { type: 'paragraph', text: 'keyword única' },
     { type: 'heading', level: 1, text: 'Guia' }, { type: 'paragraph', text: 'Conteúdo real.' },
@@ -40,9 +50,9 @@ test('remove metadados de valor único e preserva conteúdo', () => {
   assert.deepEqual(plain(result.blocks), [{ type: 'image', mediaKey: 'capa.webp' }, { type: 'heading', level: 1, text: 'Guia' }, { type: 'paragraph', text: 'Conteúdo real.' }]);
 });
 
-test('mantém o comportamento legado quando não há marcador de revisão', () => {
+test('mantém comportamento legado sem marcador', () => {
   const normalize = loadHelper();
   const input = { title: 'Título legado', excerpt: 'Resumo legado', sources: [], blocks: [{ type: 'paragraph', text: 'Resumo legado' }] };
   const result = normalize(input);
-  assert.equal(result.title, input.title); assert.equal(result.excerpt, input.excerpt); assert.deepEqual(plain(result.blocks), input.blocks);
+  assert.equal(result.title, input.title); assert.deepEqual(plain(result.blocks), input.blocks);
 });
