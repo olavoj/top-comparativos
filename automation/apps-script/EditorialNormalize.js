@@ -2,12 +2,20 @@ function topcEhInicioH1_(bloco) {
   return bloco && bloco.type === 'heading' && Number(bloco.level) === 1;
 }
 
+function topcEhInicioConteudoSeguro_(bloco) {
+  if (!bloco) return false;
+  if (bloco.type === 'heading') return true;
+  if (bloco.type !== 'paragraph') return false;
+  const texto = String(bloco.text || '').trim();
+  // Keywords editoriais são termos curtos; uma frase longa já é conteúdo.
+  return texto.length >= 80 || /[.!?]$/.test(texto);
+}
+
 function topcNormalizarRevisaoEditorial_(resultado) {
   const marcador = '=== CONTEÚDO PARA PUBLICAÇÃO ===';
   const blocos = Array.isArray(resultado.blocks) ? resultado.blocks : [];
   const fontes = Array.isArray(resultado.sources) ? resultado.sources : [];
   const indiceMarcador = blocos.findIndex(function (bloco) { return bloco && bloco.type === 'paragraph' && String(bloco.text || '').trim().toUpperCase() === marcador; });
-
   if (indiceMarcador === -1) return { title: resultado.title, excerpt: resultado.excerpt, seoTitle: resultado.title, seoDescription: resultado.excerpt, blocks: blocos, sources: fontes };
 
   const imagensPreservadas = blocos.slice(0, indiceMarcador).filter(function (bloco) { return bloco && bloco.type === 'image'; });
@@ -20,15 +28,15 @@ function topcNormalizarRevisaoEditorial_(resultado) {
   while (indice < blocos.length) {
     const bloco = blocos[indice];
     if (lendoMetadados && bloco && bloco.type === 'image') { conteudo.push(bloco); indice += 1; continue; }
-
     if (lendoMetadados && bloco && bloco.type === 'paragraph') {
       const texto = String(bloco.text || '').trim();
       const chave = rotulos[texto.toUpperCase()];
       if (chave === 'secondaryKeywords') {
         const keywords = [];
         indice += 1;
-        while (indice < blocos.length && !topcEhInicioH1_(blocos[indice])) {
+        while (indice < blocos.length) {
           const candidato = blocos[indice];
+          if (topcEhInicioH1_(candidato) || topcEhInicioConteudoSeguro_(candidato)) break;
           if (candidato && candidato.type === 'image') { conteudo.push(candidato); indice += 1; continue; }
           if (candidato && candidato.type === 'paragraph') keywords.push(String(candidato.text || '').trim());
           indice += 1;
@@ -42,7 +50,6 @@ function topcNormalizarRevisaoEditorial_(resultado) {
         continue;
       }
     }
-
     lendoMetadados = false;
     conteudo.push.apply(conteudo, blocos.slice(indice));
     break;
