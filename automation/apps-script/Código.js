@@ -2279,10 +2279,11 @@ function repararFilaImagensAtual() {
     .getRange(2, 1, aba.getLastRow() - 1, 16)
     .getValues();
 
+  let reabertas = 0;
+
   valores.forEach(function(linha, indice) {
     const marcador = String(linha[5] || '').trim();
     const status = String(linha[10] || '').trim();
-    const erro = String(linha[13] || '');
 
     if (marcador === '[IMAGEM: ...]') {
       aba.getRange(indice + 2, 11).setValue('Ignorada');
@@ -2292,21 +2293,23 @@ function repararFilaImagensAtual() {
       return;
     }
 
-    if (
-      status === 'Falha' &&
-      erro.indexOf('aspect_ratio') !== -1
-    ) {
+    // Qualquer falha volta para a fila. Restringir por mensagem de erro
+    // deixava presa toda tarefa que falhasse por outro motivo.
+    if (status === 'Falha' || status === 'Erro temporário') {
       aba.getRange(indice + 2, 11).setValue('Pendente');
       aba.getRange(indice + 2, 12).setValue(0);
       aba.getRange(indice + 2, 14).clearContent();
       aba.getRange(indice + 2, 16).setValue(new Date());
+      reabertas += 1;
     }
   });
 
   instalarGatilhoImagens_();
 
   SpreadsheetApp.getUi().alert(
-    'Fila reparada. O processamento será retomado automaticamente.'
+    reabertas +
+    ' tarefa(s) reaberta(s). O processamento será retomado ' +
+    'automaticamente em até um minuto.'
   );
 }
 const TOPC_SITE_AUTOMATION = {
