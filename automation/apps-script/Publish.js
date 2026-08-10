@@ -60,7 +60,7 @@ function topcAdicionarPublishMenu_(menu) {
   return menu
     .addSeparator()
     .addItem(
-      '6. Publicar artigo no site',
+      '7. Publicar artigo no site',
       'publicarArtigoSiteSelecionado'
     );
 }

@@ -1,5 +1,6 @@
-// Compatibilidade com o cabeçalho atual da planilha editorial.
-// Mantém o override depois de Código.js no fluxo clasp atual.
+// Comando "1. Pesquisar pauta selecionada".
+// Definição única: grava o resultado na coluna "Link da pesquisa",
+// que é a coluna lida pelo comando de geração de artigo.
 function pesquisarPautaSelecionada() {
   const planilha = SpreadsheetApp.getActiveSpreadsheet();
   const aba = planilha.getActiveSheet();
@@ -41,9 +42,11 @@ function pesquisarPautaSelecionada() {
   }
 
   const trava = LockService.getDocumentLock();
+  let travaAdquirida = false;
 
   try {
     trava.waitLock(10000);
+    travaAdquirida = true;
 
     atualizarValor_(aba, linha, colunas, 'Status', 'Pesquisando...');
     SpreadsheetApp.flush();
@@ -91,6 +94,8 @@ function pesquisarPautaSelecionada() {
       'Não foi possível concluir a pesquisa:\n\n' + erro.message
     );
   } finally {
-    trava.releaseLock();
+    if (travaAdquirida) {
+      trava.releaseLock();
+    }
   }
 }

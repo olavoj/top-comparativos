@@ -3,7 +3,7 @@ function topcSha256BytesHex_(bytes) {
 }
 
 function topcAdicionarUploadMenu_(menu) {
-  return menu.addSeparator().addItem('5. Enviar imagens ao site', 'enviarImagensSiteSelecionadas');
+  return menu.addSeparator().addItem('6. Enviar imagens ao site', 'enviarImagensSiteSelecionadas');
 }
 
 function topcNormalizarMidiasPorArquivo_(midias) {
@@ -71,7 +71,7 @@ function enviarImagensSiteSelecionadas() {
   if (!slug) throw new Error('A pauta não possui Slug.');
   const sourceKey = 'pauta-' + id;
   const midias = topcNormalizarMidiasPorArquivo_(topcObterMidiasConcluidas_(linha, slug));
-  if (!midias.length) throw new Error('Nenhuma imagem concluída foi encontrada para a pauta.');
+  if (!midias.length) throw new Error(topcDiagnosticarFilaDaPauta_(linha, slug));
   const envelope = topcMontarEnvelopeSelecionado_();
   const referencedMediaKeys = envelope.document.blocks.filter(function(block) { return block.type === 'image'; }).map(function(block) { return block.mediaKey; });
   const resultados = [];

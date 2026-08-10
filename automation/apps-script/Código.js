@@ -2,11 +2,40 @@ const CONFIG = {
   ROOT_FOLDER_ID: '1h4LpehaVjcYSNeM4ktKw6sTWGy1wQYQ3',
   PRODUCTION_FOLDER: '01 - Em produção',
   PERPLEXITY_MODEL: 'sonar-pro',
-  PERPLEXITY_URL: 'https://api.perplexity.ai/v1/sonar'
+  PERPLEXITY_URL: 'https://api.perplexity.ai/chat/completions'
 };
 
+function topcAdicionarRascunhoMenu_(menu) {
+  return menu
+    .addSeparator()
+    .addItem(
+      '5. Enviar rascunho ao site',
+      'enviarRascunhoSiteSelecionado'
+    );
+}
+
+function topcAdicionarFerramentasMenu_(menu, ui) {
+  return menu
+    .addSeparator()
+    .addSubMenu(
+      ui.createMenu('Ferramentas')
+        .addItem('Testar conexão com o site', 'testarConexaoSite')
+        .addItem(
+          'Diagnosticar imagens da pauta',
+          'diagnosticarImagensDaPauta'
+        )
+        .addItem('Reparar fila de imagens', 'repararFilaImagensAtual')
+        .addItem(
+          'Reabrir falhas de lista selecionadas',
+          'reabrirFalhasListItemSelecionadas'
+        )
+    );
+}
+
 function onOpen() {
-  const menu = SpreadsheetApp.getUi()
+  const ui = SpreadsheetApp.getUi();
+
+  const menu = ui
     .createMenu('Automação SEO')
     .addItem(
       '1. Pesquisar pauta selecionada',
@@ -27,105 +56,17 @@ function onOpen() {
       'enfileirarImagensSelecionadas'
     );
 
-  topcAdicionarPublishMenu_(
-    topcAdicionarUploadMenu_(menu)
+  topcAdicionarFerramentasMenu_(
+    topcAdicionarPublishMenu_(
+      topcAdicionarUploadMenu_(
+        topcAdicionarRascunhoMenu_(menu)
+      )
+    ),
+    ui
   ).addToUi();
 }
 
-function pesquisarPautaSelecionada() {
-  const planilha = SpreadsheetApp.getActiveSpreadsheet();
-  const aba = planilha.getActiveSheet();
-  const linha = aba.getActiveCell().getRow();
-
-  if (linha === 1) {
-    SpreadsheetApp.getUi().alert(
-      'Selecione qualquer célula da linha da pauta que deseja pesquisar.'
-    );
-    return;
-  }
-
-  const colunas = obterColunas_(aba);
-  validarColunas_(colunas, [
-    'Título',
-    'Tipo',
-    'Palavra-chave principal',
-    'Intenção',
-    'Categoria',
-    'Status',
-    'Link do Google Docs',
-    'Observações'
-  ]);
-
-  const pauta = {
-    titulo: obterValor_(aba, linha, colunas, 'Título'),
-    tipo: obterValor_(aba, linha, colunas, 'Tipo'),
-    palavraChave: obterValor_(aba, linha, colunas, 'Palavra-chave principal'),
-    intencao: obterValor_(aba, linha, colunas, 'Intenção'),
-    categoria: obterValor_(aba, linha, colunas, 'Categoria'),
-    pilar: obterValor_(aba, linha, colunas, 'Pilar relacionado')
-  };
-
-  if (!pauta.titulo || !pauta.palavraChave) {
-    SpreadsheetApp.getUi().alert(
-      'Preencha pelo menos Título e Palavra-chave principal.'
-    );
-    return;
-  }
-
-  const trava = LockService.getDocumentLock();
-
-  try {
-    trava.waitLock(10000);
-
-    atualizarValor_(aba, linha, colunas, 'Status', 'Pesquisando...');
-    SpreadsheetApp.flush();
-
-    const resultado = pesquisarNoPerplexity_(pauta);
-    const documento = criarDocumentoPesquisa_(pauta, resultado);
-
-    atualizarValor_(
-      aba,
-      linha,
-      colunas,
-      'Link do Google Docs',
-      documento.getUrl()
-    );
-
-    atualizarValor_(aba, linha, colunas, 'Status', 'Pesquisa pronta');
-
-    atualizarValor_(
-      aba,
-      linha,
-      colunas,
-      'Observações',
-      'Pesquisa criada automaticamente em ' +
-        Utilities.formatDate(
-          new Date(),
-          Session.getScriptTimeZone(),
-          'dd/MM/yyyy HH:mm'
-        )
-    );
-
-    SpreadsheetApp.getUi().alert(
-      'Pesquisa concluída!\n\nDocumento: ' + documento.getUrl()
-    );
-  } catch (erro) {
-    atualizarValor_(aba, linha, colunas, 'Status', 'Erro');
-    atualizarValor_(
-      aba,
-      linha,
-      colunas,
-      'Observações',
-      'Erro na pesquisa: ' + erro.message
-    );
-
-    SpreadsheetApp.getUi().alert(
-      'Não foi possível concluir a pesquisa:\n\n' + erro.message
-    );
-  } finally {
-    trava.releaseLock();
-  }
-}
+// O comando "1. Pesquisar pauta selecionada" fica em Pesquisa.js.
 
 function pesquisarNoPerplexity_(pauta) {
   const apiKey = PropertiesService
@@ -139,31 +80,7 @@ function pesquisarNoPerplexity_(pauta) {
   }
 
   const prompt = montarPromptPesquisa_(pauta);
-
-  const payload = {
-    model: CONFIG.PERPLEXITY_MODEL,
-    messages: [
-      {
-        role: 'system',
-        content:
-          'Você é um pesquisador editorial brasileiro especializado em SEO, ' +
-          'comparativos de produtos e conteúdo para afiliados. Não invente ' +
-          'preços, especificações, avaliações, testes ou características.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ],
-    temperature: 0.2,
-    max_tokens: 5000,
-    language_preference: 'pt',
-    web_search_options: {
-      search_mode: 'web',
-      search_language_filter: ['pt'],
-      return_related_questions: true
-    }
-  };
+  const payload = montarPayloadPesquisa_(prompt);
 
   const resposta = UrlFetchApp.fetch(CONFIG.PERPLEXITY_URL, {
     method: 'post',
@@ -209,6 +126,36 @@ function pesquisarNoPerplexity_(pauta) {
     citacoes: dados.citations || [],
     resultados: dados.search_results || [],
     perguntasRelacionadas: dados.related_questions || []
+  };
+}
+
+// A API do Perplexity rejeita campos desconhecidos no corpo. Só entram
+// aqui parâmetros aceitos por /chat/completions; o idioma é pedido no
+// prompt, não em um campo próprio.
+function montarPayloadPesquisa_(prompt) {
+  return {
+    model: CONFIG.PERPLEXITY_MODEL,
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Você é um pesquisador editorial brasileiro especializado em SEO, ' +
+          'comparativos de produtos e conteúdo para afiliados. Responda ' +
+          'sempre em português do Brasil. Não invente preços, ' +
+          'especificações, avaliações, testes ou características.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    temperature: 0.2,
+    max_tokens: 5000,
+    search_mode: 'web',
+    return_related_questions: true,
+    web_search_options: {
+      search_context_size: 'high'
+    }
   };
 }
 
@@ -398,6 +345,10 @@ function gerarArtigoSelecionado() {
     'Observações'
   ]);
 
+  // O slug entra no nome das imagens e no envelope do site.
+  // Sem ele, os marcadores saem quebrados mais adiante no fluxo.
+  topcGarantirSlugLinha_(aba, linha);
+
   const pauta = {
     titulo: obterValor_(aba, linha, colunas, 'Título'),
     tipo: obterValor_(aba, linha, colunas, 'Tipo'),
@@ -432,9 +383,11 @@ function gerarArtigoSelecionado() {
   }
 
   const trava = LockService.getDocumentLock();
+  let travaAdquirida = false;
 
   try {
     trava.waitLock(10000);
+    travaAdquirida = true;
 
     atualizarValor_(
       aba,
@@ -499,7 +452,9 @@ function gerarArtigoSelecionado() {
       'Não foi possível gerar o artigo:\n\n' + erro.message
     );
   } finally {
-    trava.releaseLock();
+    if (travaAdquirida) {
+      trava.releaseLock();
+    }
   }
 }
 
@@ -1609,7 +1564,7 @@ function prepararMarcadoresImagens_(
   const marcadores = marcadoresExistentes.slice();
 
   const possuiCapa = marcadores.some(function (item) {
-    return /capa|principal|hero/i.test(item.nome);
+    return ehNomeDeCapa_(item.nome);
   });
 
   if (!possuiCapa) {
@@ -1648,7 +1603,9 @@ function prepararMarcadoresImagens_(
   }
 
   marcadores.forEach(function (item, indice) {
-    item.tipo = indice === 0 && /capa/i.test(item.nome)
+    // O prompt do artigo pede "imagem-principal-<slug>", enquanto o
+    // marcador criado aqui usa "capa-<slug>". Os dois valem como capa.
+    item.tipo = indice === 0 && ehNomeDeCapa_(item.nome)
       ? 'Capa'
       : 'Interna';
 
@@ -1668,6 +1625,10 @@ function prepararMarcadoresImagens_(
   );
 
   return marcadores;
+}
+
+function ehNomeDeCapa_(nome) {
+  return /capa|principal|hero/i.test(String(nome || ''));
 }
 
 function extrairMarcadoresImagens_(texto) {
@@ -1719,6 +1680,26 @@ function calcularQuantidadeImagens_(tipo) {
   return 3;
 }
 
+function topcMapearParagrafos_(corpo) {
+  const paragrafos = [];
+
+  for (let i = 0; i < corpo.getNumChildren(); i++) {
+    const filho = corpo.getChild(i);
+
+    const ehParagrafo =
+      filho.getType() === DocumentApp.ElementType.PARAGRAPH;
+
+    paragrafos.push({
+      texto: filho.getText ? filho.getText() : '',
+      ehH1: ehParagrafo &&
+        filho.asParagraph().getHeading() ===
+          DocumentApp.ParagraphHeading.HEADING1
+    });
+  }
+
+  return paragrafos;
+}
+
 function garantirMarcadoresNoDocumento_(
   documentoId,
   marcadores
@@ -1729,22 +1710,29 @@ function garantirMarcadoresNoDocumento_(
 
   const corpo = documento.getBody();
   const textoAtual = corpo.getText();
+  const paragrafos = topcMapearParagrafos_(corpo);
 
-  marcadores.forEach(function (item, indice) {
+  const h1 = topcIndiceDoH1_(paragrafos);
+  let fim = topcIndiceFimDoArtigo_(paragrafos);
+
+  // A capa entra logo depois do H1 e as internas antes das fontes.
+  // Fora desses limites a imagem fica no cabeçalho da revisão ou no
+  // rodapé, e o envelope do site nunca chega a referenciá-la.
+  marcadores.forEach(function (item) {
     if (textoAtual.includes(item.marcador)) {
       return;
     }
 
-    if (item.tipo === 'Capa') {
-      const posicao = Math.min(
-        3,
-        corpo.getNumChildren()
-      );
+    const posicao = item.tipo === 'Capa'
+      ? (h1 >= 0 ? h1 + 1 : Math.min(3, corpo.getNumChildren()))
+      : fim;
 
-      corpo.insertParagraph(
-        posicao,
-        item.marcador
-      );
+    if (posicao >= 0 && posicao <= corpo.getNumChildren()) {
+      corpo.insertParagraph(posicao, item.marcador);
+
+      if (fim >= 0 && posicao <= fim) {
+        fim += 1;
+      }
     } else {
       corpo.appendParagraph(item.marcador);
     }
@@ -2014,24 +2002,21 @@ function reservarProximaTarefa_(abaFila) {
   }
 }
 
-function gerarImagemGemini_(prompt, proporcao) {
-  const apiKey = PropertiesService
-    .getScriptProperties()
-    .getProperty('GEMINI_API_KEY');
-
-  if (!apiKey) {
-    throw new Error(
-      'A propriedade GEMINI_API_KEY não foi encontrada.'
-    );
-  }
-
-  const url =
+// A geração de imagem da Gemini API vive em v1beta e configura a
+// proporção em generationConfig.imageConfig, com valores como "16:9".
+// A forma antiga (responseFormat + enums ASPECT_RATIO_*) é do Vertex AI
+// e faz a chamada falhar com erro de aspect_ratio.
+function montarUrlImagemGemini_() {
+  return (
     'https://generativelanguage.googleapis.com/' +
-    'v1/models/' +
+    'v1beta/models/' +
     IMAGENS_CONFIG.MODELO +
-    ':generateContent';
+    ':generateContent'
+  );
+}
 
-  const payload = {
+function montarPayloadImagemGemini_(prompt, proporcao) {
+  return {
     contents: [
       {
         role: 'user',
@@ -2047,16 +2032,27 @@ function gerarImagemGemini_(prompt, proporcao) {
         'TEXT',
         'IMAGE'
       ],
-      responseFormat: {
-  image: {
-    aspectRatio: proporcao === '16:9'
-      ? 'ASPECT_RATIO_SIXTEEN_BY_NINE'
-      : 'ASPECT_RATIO_FOUR_BY_THREE',
-    imageSize: 'IMAGE_SIZE_ONE_K'
-  }
-}
+      imageConfig: {
+        aspectRatio: proporcao === '16:9' ? '16:9' : '4:3',
+        imageSize: '1K'
+      }
     }
   };
+}
+
+function gerarImagemGemini_(prompt, proporcao) {
+  const apiKey = PropertiesService
+    .getScriptProperties()
+    .getProperty('GEMINI_API_KEY');
+
+  if (!apiKey) {
+    throw new Error(
+      'A propriedade GEMINI_API_KEY não foi encontrada.'
+    );
+  }
+
+  const url = montarUrlImagemGemini_();
+  const payload = montarPayloadImagemGemini_(prompt, proporcao);
 
   const resposta = UrlFetchApp.fetch(url, {
     method: 'post',
@@ -2157,137 +2153,7 @@ function montarNomeArquivo_(nomeOriginal, mimeType) {
   return base + extensao;
 }
 
-function inserirImagemNoDocumento_(
-  tarefa,
-  arquivo
-) {
-  const documento = DocumentApp.openById(
-    tarefa.documentoFinalId
-  );
-
-  const corpo = documento.getBody();
-  const padrao = escaparRegex_(tarefa.marcador);
-  const encontrado = corpo.findText(padrao);
-
-  if (!encontrado) {
-    documento.saveAndClose();
-
-    throw new Error(
-      'Marcador não encontrado no documento: ' +
-      tarefa.marcador
-    );
-  }
-
-  const elementoTexto =
-    encontrado.getElement().asText();
-
-  const inicio = encontrado.getStartOffset();
-  const fim = encontrado.getEndOffsetInclusive();
-
-  const paragrafo =
-    elementoTexto.getParent().asParagraph();
-
-  const indiceParagrafo =
-    corpo.getChildIndex(paragrafo);
-
-  const paragrafoImagem =
-    corpo.insertParagraph(
-      indiceParagrafo,
-      ''
-    );
-
-  const imagem = paragrafoImagem
-    .appendInlineImage(arquivo.getBlob());
-
-  redimensionarImagem_(imagem, 620);
-
-  imagem.setAltTitle(
-    criarLegendaImagem_(tarefa)
-  );
-
-  imagem.setAltDescription(
-    'Imagem editorial relacionada ao artigo ' +
-    tarefa.slug +
-    '.'
-  );
-
-  paragrafoImagem.setAlignment(
-    DocumentApp.HorizontalAlignment.CENTER
-  );
-
-  const legenda =
-    tarefa.tipoImagem === 'Capa'
-      ? criarLegendaImagem_(tarefa)
-      : criarLegendaImagem_(tarefa) +
-        (
-          /review|comparativo/i.test(
-            tarefa.prompt
-          )
-            ? ' — Imagem ilustrativa.'
-            : ''
-        );
-
-  const paragrafoLegenda =
-    corpo.insertParagraph(
-      indiceParagrafo + 1,
-      legenda
-    );
-
-  paragrafoLegenda
-    .setAlignment(
-      DocumentApp.HorizontalAlignment.CENTER
-    )
-    .setForegroundColor('#64748b');
-
-  paragrafoLegenda.editAsText().setItalic(true);
-
-  elementoTexto.deleteText(inicio, fim);
-
-  if (!paragrafo.getText().trim()) {
-    paragrafo.removeFromParent();
-  }
-
-  documento.saveAndClose();
-}
-
-function redimensionarImagem_(imagem, larguraMaxima) {
-  const larguraOriginal = imagem.getWidth();
-  const alturaOriginal = imagem.getHeight();
-
-  if (!larguraOriginal || !alturaOriginal) {
-    return;
-  }
-
-  const largura = Math.min(
-    larguraOriginal,
-    larguraMaxima
-  );
-
-  const altura = Math.round(
-    alturaOriginal * largura / larguraOriginal
-  );
-
-  imagem.setWidth(largura);
-  imagem.setHeight(altura);
-}
-
-function criarLegendaImagem_(tarefa) {
-  const nome = String(tarefa.nomeArquivo)
-    .replace(/\.[a-z0-9]+$/i, '')
-    .replace(/-/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return nome.charAt(0).toUpperCase() +
-    nome.slice(1);
-}
-
-function escaparRegex_(texto) {
-  return String(texto).replace(
-    /[.*+?^${}()|[\]\\]/g,
-    '\\$&'
-  );
-}
+// A inserção das imagens no documento final fica em ImageInsert.js.
 
 function limitarMensagemErro_(mensagem) {
   return String(mensagem || 'Erro desconhecido')
@@ -2444,10 +2310,11 @@ function repararFilaImagensAtual() {
     .getRange(2, 1, aba.getLastRow() - 1, 16)
     .getValues();
 
+  let reabertas = 0;
+
   valores.forEach(function(linha, indice) {
     const marcador = String(linha[5] || '').trim();
     const status = String(linha[10] || '').trim();
-    const erro = String(linha[13] || '');
 
     if (marcador === '[IMAGEM: ...]') {
       aba.getRange(indice + 2, 11).setValue('Ignorada');
@@ -2457,21 +2324,23 @@ function repararFilaImagensAtual() {
       return;
     }
 
-    if (
-      status === 'Falha' &&
-      erro.indexOf('aspect_ratio') !== -1
-    ) {
+    // Qualquer falha volta para a fila. Restringir por mensagem de erro
+    // deixava presa toda tarefa que falhasse por outro motivo.
+    if (status === 'Falha' || status === 'Erro temporário') {
       aba.getRange(indice + 2, 11).setValue('Pendente');
       aba.getRange(indice + 2, 12).setValue(0);
       aba.getRange(indice + 2, 14).clearContent();
       aba.getRange(indice + 2, 16).setValue(new Date());
+      reabertas += 1;
     }
   });
 
   instalarGatilhoImagens_();
 
   SpreadsheetApp.getUi().alert(
-    'Fila reparada. O processamento será retomado automaticamente.'
+    reabertas +
+    ' tarefa(s) reaberta(s). O processamento será retomado ' +
+    'automaticamente em até um minuto.'
   );
 }
 const TOPC_SITE_AUTOMATION = {
@@ -2753,17 +2622,12 @@ function topcConverterDocumentoEditorial_(documento, midias) {
   const blocks = [];
   const sources = [];
 
- midias = midias || [];
+  midias = midias || [];
 
-const capa = midias.find(function(midia) {
-  return midia.role === 'cover';
-}) || null;
-
-const internas = midias.filter(function(midia) {
-  return midia.role === 'inline';
-});
-
-let indiceInterna = 0;
+  // As imagens do documento entram como posições reservadas e só são
+  // ligadas às mídias da fila no fim, quando a ordem completa é conhecida.
+  const imagensDoDocumento = [];
+  let posicaoDaCapa = 0;
 
   let encontrouArtigo = false;
   let coletandoFontes = false;
@@ -2890,27 +2754,22 @@ let indiceInterna = 0;
 
     const paragrafo = elemento.asParagraph();
 
-if (
-  encontrouArtigo &&
-  !coletandoFontes &&
-  topcParagrafoTemImagem_(paragrafo)
-) {
-  if (indiceInterna < internas.length) {
-    const midia = internas[indiceInterna];
+    if (
+      encontrouArtigo &&
+      !coletandoFontes &&
+      topcParagrafoTemImagem_(paragrafo)
+    ) {
+      imagensDoDocumento.push({
+        indice: blocks.length,
+        alt: topcAltPrimeiraImagem_(paragrafo)
+      });
 
-    blocks.push({
-      type: 'image',
-      mediaKey: midia.mediaKey,
-      alt: midia.alt
-    });
+      blocks.push(null);
 
-    indiceInterna++;
-  }
+      continue;
+    }
 
-  continue;
-}
-
-const texto = paragrafo.getText().trim();
+    const texto = paragrafo.getText().trim();
 
     if (!texto) {
       continue;
@@ -2923,22 +2782,15 @@ const texto = paragrafo.getText().trim();
      * Tudo que existe antes dele é material editorial interno.
      */
     if (
-  !encontrouArtigo &&
-  heading === DocumentApp.ParagraphHeading.HEADING1
-) {
-  encontrouArtigo = true;
-  titulo = texto;
+      !encontrouArtigo &&
+      heading === DocumentApp.ParagraphHeading.HEADING1
+    ) {
+      encontrouArtigo = true;
+      titulo = texto;
+      posicaoDaCapa = blocks.length;
 
-  if (capa) {
-    blocks.push({
-      type: 'image',
-      mediaKey: capa.mediaKey,
-      alt: capa.alt
-    });
-  }
-
-  continue;
-}
+      continue;
+    }
 
     /*
      * FONTES
@@ -3058,7 +2910,40 @@ const texto = paragrafo.getText().trim();
     );
   }
 
-  if (!blocks.length) {
+  const plano = topcPlanejarImagensDocumento_(
+    imagensDoDocumento.map(function (item) {
+      return item.alt;
+    }),
+    midias
+  );
+
+  imagensDoDocumento.forEach(function (item, indice) {
+    const midia = plano.atribuicoes[indice];
+
+    blocks[item.indice] = midia
+      ? {
+          type: 'image',
+          mediaKey: midia.mediaKey,
+          alt: midia.alt
+        }
+      : null;
+  });
+
+  // Capa que não aparece no corpo entra logo depois do H1, para que o
+  // envelope sempre referencie todas as mídias concluídas da pauta.
+  if (plano.capaRestante) {
+    blocks.splice(posicaoDaCapa, 0, {
+      type: 'image',
+      mediaKey: plano.capaRestante.mediaKey,
+      alt: plano.capaRestante.alt
+    });
+  }
+
+  const blocosFinais = blocks.filter(function (bloco) {
+    return Boolean(bloco);
+  });
+
+  if (!blocosFinais.length) {
     throw new Error(
       'Nenhum bloco editorial foi encontrado.'
     );
@@ -3067,9 +2952,22 @@ const texto = paragrafo.getText().trim();
   return topcNormalizarRevisaoEditorial_({
     title: titulo,
     excerpt: primeiroParagrafo,
-    blocks: blocks,
+    blocks: blocosFinais,
     sources: sources
   });
+}
+
+
+function topcAltPrimeiraImagem_(paragrafo) {
+  for (let i = 0; i < paragrafo.getNumChildren(); i++) {
+    const filho = paragrafo.getChild(i);
+
+    if (filho.getType() === DocumentApp.ElementType.INLINE_IMAGE) {
+      return String(filho.asInlineImage().getAltTitle() || '');
+    }
+  }
+
+  return '';
 }
 
 
@@ -3179,6 +3077,13 @@ function enviarRascunhoSiteSelecionado() {
   const retorno = JSON.parse(texto);
   const article = retorno.article;
 
+  if (!article || !article.articleId) {
+    throw new Error(
+      'O site não retornou os dados do artigo. Resposta: ' +
+      texto.substring(0, 500)
+    );
+  }
+
   topcPersistirVersaoSite_(aba, linha, article.updatedAt);
 
   const preview =
@@ -3222,115 +3127,7 @@ function testarImagensNoEnvelopeSite() {
     );
   }
 }
-function topcObterMidiasConcluidas_(linhaPauta, slug) {
-  const planilha = SpreadsheetApp.getActiveSpreadsheet();
-  const aba = planilha.getSheetByName('Fila de imagens');
-
-  if (!aba) {
-    throw new Error('A aba "Fila de imagens" não foi encontrada.');
-  }
-
-  const valores = aba.getDataRange().getDisplayValues();
-  const headers = valores[0];
-  const colunas = {};
-
-  headers.forEach(function(header, i) {
-    colunas[String(header).trim()] = i;
-  });
-
-  const obrigatorias = [
-    'Slug',
-    'Linha pauta',
-    'Nome arquivo',
-    'Tipo imagem',
-    'Status',
-    'Arquivo ID'
-  ];
-
-  obrigatorias.forEach(function(nome) {
-    if (colunas[nome] === undefined) {
-      throw new Error(
-        'Coluna não encontrada na Fila de imagens: ' + nome
-      );
-    }
-  });
-
-  const encontradas = [];
-  let posicaoInterna = 0;
-
-  for (let i = 1; i < valores.length; i++) {
-    const row = valores[i];
-
-    const rowSlug =
-      String(row[colunas['Slug']] || '').trim();
-
-    const rowLinha =
-      String(row[colunas['Linha pauta']] || '').trim();
-
-    const status =
-      String(row[colunas['Status']] || '').trim();
-
-    const arquivoId =
-      String(row[colunas['Arquivo ID']] || '').trim();
-
-    if (rowSlug !== slug) continue;
-    if (rowLinha !== String(linhaPauta)) continue;
-    if (status !== 'Concluída') continue;
-    if (!arquivoId) continue;
-
-    const nomeArquivo =
-      String(row[colunas['Nome arquivo']] || '').trim();
-
-    if (
-      !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(nomeArquivo)
-    ) {
-      throw new Error(
-        'Nome de imagem inválido: ' + nomeArquivo
-      );
-    }
-
-    const tipoImagem =
-      String(row[colunas['Tipo imagem']] || '').trim();
-
-    const role =
-      tipoImagem.toLowerCase() === 'capa'
-        ? 'cover'
-        : 'inline';
-
-    const position =
-      role === 'cover'
-        ? 0
-        : posicaoInterna++;
-
-    encontradas.push({
-      mediaKey: nomeArquivo,
-      fileId: arquivoId,
-      role: role,
-      position: position,
-      alt: topcAltImagem_(nomeArquivo)
-    });
-  }
-
-  return encontradas;
-}
-
-
-function topcAltImagem_(nomeArquivo) {
-  const texto = String(nomeArquivo)
-    .replace(/\.[^.]+$/, '')
-    .replace(/[-_]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!texto) {
-    return 'Imagem editorial';
-  }
-
-  return (
-    texto.charAt(0).toUpperCase() +
-    texto.slice(1)
-  ).substring(0, 300);
-}
+// A leitura da "Fila de imagens" fica em MediaQueue.js.
 
 
 function topcParagrafoTemImagem_(paragrafo) {

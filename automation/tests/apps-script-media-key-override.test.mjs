@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-const path = new URL('../apps-script/ZZMediaKeyFix.js', import.meta.url);
+const path = new URL('../apps-script/MediaQueue.js', import.meta.url);
 
 function load(rows) {
   const context = vm.createContext({

@@ -235,6 +235,6 @@ test('registra publicação depois do upload no menu', () => {
   assert.strictEqual(api.topcAdicionarPublishMenu_(menu), menu);
   assert.deepEqual(calls, [
     ['separator'],
-    ['6. Publicar artigo no site', 'publicarArtigoSiteSelecionado']
+    ['7. Publicar artigo no site', 'publicarArtigoSiteSelecionado']
   ]);
 });

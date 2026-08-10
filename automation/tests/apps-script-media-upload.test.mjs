@@ -79,5 +79,5 @@ test('registra o comando separado de upload no menu', () => {
   const api = loadScripts([corePath, uploadPath]); const calls = [];
   const menu = { addSeparator() { calls.push(['separator']); return this; }, addItem(label, handler) { calls.push([label, handler]); return this; } };
   assert.strictEqual(api.topcAdicionarUploadMenu_(menu), menu);
-  assert.deepEqual(calls, [['separator'], ['5. Enviar imagens ao site', 'enviarImagensSiteSelecionadas']]);
+  assert.deepEqual(calls, [['separator'], ['6. Enviar imagens ao site', 'enviarImagensSiteSelecionadas']]);
 });
