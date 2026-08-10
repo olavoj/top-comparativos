@@ -3,7 +3,7 @@ function topcSha256BytesHex_(bytes) {
 }
 
 function topcAdicionarUploadMenu_(menu) {
-  return menu.addSeparator().addItem('5. Enviar imagens ao site', 'enviarImagensSiteSelecionadas');
+  return menu.addSeparator().addItem('6. Enviar imagens ao site', 'enviarImagensSiteSelecionadas');
 }
 
 function topcNormalizarMidiasPorArquivo_(midias) {

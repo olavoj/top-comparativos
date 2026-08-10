@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const path = new URL('../apps-script/ZZImageInsertFix.js', import.meta.url);
+const path = new URL('../apps-script/ImageInsert.js', import.meta.url);
 
 function source() {
   return fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : '';

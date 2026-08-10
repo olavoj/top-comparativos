@@ -1,5 +1,18 @@
-// Mantém envelope, upload e publicação usando a mesma mediaKey real.
-// O prefixo ZZ garante que este override substitua a versão de Código.js no clasp.
+// Leitura da "Fila de imagens" para envelope, upload e publicação.
+// Definição única: mantém as três etapas usando a mesma mediaKey real,
+// derivada do MIME do arquivo no Drive.
+function topcAltImagem_(nomeArquivo) {
+  const texto = String(nomeArquivo)
+    .replace(/\.[^.]+$/, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!texto) return 'Imagem editorial';
+
+  return (texto.charAt(0).toUpperCase() + texto.slice(1)).substring(0, 300);
+}
+
 function topcObterMidiasConcluidas_(linhaPauta, slug) {
   const planilha = SpreadsheetApp.getActiveSpreadsheet();
   const aba = planilha.getSheetByName('Fila de imagens');
