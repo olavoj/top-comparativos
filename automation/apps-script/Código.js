@@ -1656,6 +1656,14 @@ function ehNomeDeCapa_(nome) {
   return /capa|principal|hero/i.test(String(nome || ''));
 }
 
+// O Claude às vezes ecoa o marcador de exemplo do prompt ("[IMAGEM: ...]")
+// como texto literal em vez de um nome de arquivo real. Um marcador assim
+// nunca deve entrar na fila: gera uma imagem chamada "..." que o envio ao
+// site rejeita mais tarde (MediaQueue.js valida o nome do arquivo).
+function topcNomeDeImagemValido_(nome) {
+  return /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z0-9]+$/.test(String(nome || '').trim());
+}
+
 function extrairMarcadoresImagens_(texto) {
   const regex = /\[IMAGEM:\s*([^\]]+)\]/gi;
   const resultados = [];
@@ -1666,7 +1674,7 @@ function extrairMarcadoresImagens_(texto) {
     const nome = correspondencia[1].trim();
     const marcador = correspondencia[0];
 
-    if (!encontrados.has(marcador)) {
+    if (!encontrados.has(marcador) && topcNomeDeImagemValido_(nome)) {
       encontrados.add(marcador);
 
       resultados.push({
