@@ -1058,6 +1058,32 @@ REVISÃO OBRIGATÓRIA
 - Não use Markdown para negrito.
 - Não utilize dois asteriscos em nenhuma parte do texto.
 - Não coloque a resposta dentro de bloco de código.
+- Não use travessão (—) em nenhuma parte do texto. Reescreva a frase com
+  vírgula, ponto ou conectivo comum em vez de usar " — ".
+
+SINAIS DE TEXTO GERADO POR IA: reescreva qualquer trecho que caia nestes
+padrões, mesmo que a informação em si esteja correta.
+
+- Excesso de conectivos formais como "além disso", "por conseguinte",
+  "em suma", "vale ressaltar", "nesse sentido". Use no máximo um por
+  artigo, e só se soar natural.
+- Frases todas com o mesmo comprimento e ritmo. Varie frases curtas e
+  longas como um redator humano faria.
+- Tom neutro e genérico sem nenhum ponto de vista. Dê uma opinião
+  editorial concreta quando fizer sentido, apoiada na pesquisa.
+- Conclusão em fórmula genérica ("concluindo", "diante do exposto", "em
+  resumo") que só repete o que já foi dito. Feche o artigo com algo que
+  agregue, não com um resumo disfarçado.
+- Profundidade aparente sem dado concreto: evite parágrafos que soam
+  analíticos mas não citam nenhum número, exemplo ou fonte específica da
+  pesquisa.
+- Estruturas do tipo "não é X, é Y" e listas de exatamente três itens
+  paralelos usadas em excesso. Varie a forma de apresentar comparações.
+- Perfeição artificial: gramática impecável ao ponto de soar robótico.
+  Não é para inserir erros, mas para preferir frases mais diretas e
+  menos always-polished quando isso soar mais natural.
+- Nunca invente dado, estatística ou referência que não esteja na
+  pesquisa fornecida. Se um número não está na pesquisa, não afirme.
 
 NÃO É PERMITIDO
 
@@ -1144,6 +1170,8 @@ function limparRespostaClaude_(texto) {
     .replace(/```\s*$/i, '')
     .replace(/\*\*/g, '')
     .replace(/characterísticos/gi, 'característicos')
+    .replace(/[ \t]*—[ \t]*/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
     .trim();
 
   const obrigatorios = [
