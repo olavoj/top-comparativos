@@ -3,6 +3,33 @@
 Menu `Automação SEO`, sempre com uma célula da linha da pauta selecionada
 na aba `Pauta editorial`.
 
+## Rodar o fluxo inteiro com um clique
+
+O item `▶ Rodar fluxo completo (1-7)` roda as sete etapas em sequência
+para a linha selecionada, sem publicar clique a clique:
+
+1. Executa pesquisa, artigo e revisão na hora (pula qualquer etapa cujo
+   link já esteja preenchido, então também serve para retomar uma pauta
+   parada no meio).
+2. Prepara a fila de imagens (etapa 4) e volta o controle para você — a
+   fila roda em segundo plano, uma imagem por minuto, como já acontecia.
+3. Quando a última imagem da fila termina, o script continua sozinho:
+   envia o rascunho ao site, envia as imagens e **publica o artigo**,
+   sem nenhum clique adicional.
+
+Isso significa que o artigo pode ir do zero até publicado no site sem
+revisão humana no meio do caminho. Os prompts de geração e revisão do
+Claude continuam pedindo cautela editorial (não inventar dados, sinalizar
+pontos a verificar), mas ninguém confere o texto antes de ir ao ar nesse
+modo. Para manter a revisão humana, continue usando os itens 1 a 4 e só
+rode 5, 6 e 7 manualmente depois de ler o documento final.
+
+Se a fila de imagens terminar com falhas (`Concluído com pendências`), o
+fluxo automático para antes de publicar: repare a fila
+(`Ferramentas > Reparar fila de imagens`) e rode os passos 5 a 7 manualmente
+depois. O andamento e qualquer erro do fluxo automático aparecem na coluna
+`Observações` da linha.
+
 | # | Comando | Lê | Escreve |
 |---|---------|----|---------|
 | 1 | Pesquisar pauta selecionada | Título, Palavra-chave principal | Link da pesquisa, Status |
