@@ -31,12 +31,18 @@ const validEnvelope = {
 
 function versionSheet(headers) {
   const values = new Map();
+  const formats = new Map();
   return {
     values,
+    formats,
     getLastColumn: () => headers.length,
     getRange(row, column) {
       return {
         getDisplayValues: () => [headers],
+        setNumberFormat(format) {
+          formats.set(`${row}:${column}`, format);
+          return this;
+        },
         setValue(value) {
           values.set(`${row}:${column}`, value);
           if (row === 1 && column > headers.length) headers.push(value);
@@ -97,6 +103,108 @@ test('rejeita pauta sem Status das imagens Concluído', () => {
     validEnvelope,
     [{ mediaKey: 'capa.webp' }]
   ), /Status das imagens/);
+});
+
+test('grava a versão como texto simples', () => {
+  const api = loadPublish();
+  const sheet = versionSheet(['ID', 'Versão no site']);
+
+  api.topcPersistirVersaoSite_(
+    sheet,
+    2,
+    '2026-08-05T21:59:46.49759321611Z'
+  );
+
+  assert.equal(sheet.formats.get('2:2'), '@');
+});
+
+test('rejeita versão convertida em data pela planilha', () => {
+  const api = loadPublish();
+
+  assert.throws(() => api.topcValidarPrePublicacao_(
+    { ...validContext, versaoSite: '05/08/2026 21:59:46' },
+    validEnvelope,
+    [{ mediaKey: 'capa.webp' }]
+  ), /ISO-8601/);
+});
+
+test('aceita versões ISO com e sem fração de segundo', () => {
+  const api = loadPublish();
+
+  for (const versao of [
+    '2026-08-05T21:59:46Z',
+    '2026-08-05T21:59:46.497Z',
+    '2026-08-05T21:59:46.49759321611Z',
+    '2026-08-05T18:59:46-03:00'
+  ]) {
+    assert.equal(api.topcVersaoSiteValida_(versao), true, versao);
+  }
+
+  for (const versao of ['', '05/08/2026', '2026-08-05', 'ontem']) {
+    assert.equal(api.topcVersaoSiteValida_(versao), false, versao);
+  }
+});
+
+test('explica o editorial_publish_invalid devolvido pelo site', () => {
+  const api = loadPublish();
+
+  assert.throws(
+    () => api.topcValidarRespostaPublicacao_(
+      422,
+      'pauta-11',
+      '{"error":"editorial_publish_invalid"}'
+    ),
+    error =>
+      error.message.includes('HTTP 422') &&
+      error.message.includes('editorial_publish_invalid') &&
+      /Vers.o no site/.test(error.message) &&
+      error.message.includes('Diagnosticar publicação')
+  );
+});
+
+test('preserva a resposta crua quando o código é desconhecido', () => {
+  const api = loadPublish();
+
+  assert.throws(
+    () => api.topcValidarRespostaPublicacao_(500, 'pauta-11', 'boom'),
+    error =>
+      error.message.includes('HTTP 500') &&
+      error.message.includes('boom')
+  );
+});
+
+test('resume o envelope e aponta o que falta para publicar', () => {
+  const api = loadPublish();
+
+  const resumo = api.topcResumirPublicacao_(
+    validContext,
+    { ...validEnvelope, sources: [{ url: 'https://exemplo.com' }], products: [] },
+    [{ mediaKey: 'capa.webp', role: 'cover' }]
+  );
+
+  assert.equal(resumo.sourceKey, 'pauta-1');
+  assert.equal(resumo.versaoValida, true);
+  assert.equal(resumo.fontes, 1);
+  assert.equal(resumo.produtos, 0);
+  assert.deepEqual(resumo.imagensNoEnvelope, ['capa.webp']);
+  assert.ok(resumo.pendencias.some(item => /produto/.test(item)));
+});
+
+test('aponta imagem concluída que ficou fora do envelope', () => {
+  const api = loadPublish();
+
+  const resumo = api.topcResumirPublicacao_(
+    validContext,
+    { ...validEnvelope, sources: [{ url: 'https://exemplo.com' }] },
+    [
+      { mediaKey: 'capa.webp', role: 'cover' },
+      { mediaKey: 'perdida.webp', role: 'inline' }
+    ]
+  );
+
+  assert.ok(
+    resumo.pendencias.some(item => item.includes('perdida.webp'))
+  );
 });
 
 test('rejeita publicação sem Versão no site', () => {

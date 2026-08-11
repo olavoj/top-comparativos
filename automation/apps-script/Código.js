@@ -24,6 +24,10 @@ function topcAdicionarFerramentasMenu_(menu, ui) {
           'Diagnosticar imagens da pauta',
           'diagnosticarImagensDaPauta'
         )
+        .addItem(
+          'Diagnosticar publicação',
+          'diagnosticarPublicacaoSelecionada'
+        )
         .addItem('Reparar fila de imagens', 'repararFilaImagensAtual')
         .addItem(
           'Reabrir falhas de lista selecionadas',

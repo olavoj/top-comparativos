@@ -98,6 +98,7 @@ test('o menu de ferramentas oferece o reparo da fila de imagens', () => {
   assert.deepEqual(submenus, [
     ['Testar conexão com o site', 'testarConexaoSite'],
     ['Diagnosticar imagens da pauta', 'diagnosticarImagensDaPauta'],
+    ['Diagnosticar publicação', 'diagnosticarPublicacaoSelecionada'],
     ['Reparar fila de imagens', 'repararFilaImagensAtual'],
     [
       'Reabrir falhas de lista selecionadas',
