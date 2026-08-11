@@ -66,6 +66,7 @@ test('o menu expõe as sete etapas do fluxo, do rascunho à publicação', () =>
   const itens = calls.filter(call => call.length === 2 && call[0] !== 'submenu');
 
   assert.deepEqual(itens, [
+    ['▶ Rodar fluxo completo (1-7)', 'executarFluxoCompletoSelecionado'],
     ['1. Pesquisar pauta selecionada', 'pesquisarPautaSelecionada'],
     ['2. Gerar artigo com Claude', 'gerarArtigoSelecionado'],
     ['3. Revisar artigo com Claude', 'revisarArtigoSelecionado'],

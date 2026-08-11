@@ -60,6 +60,13 @@ function enviarImagensSiteSelecionadas() {
   const aba = planilha.getActiveSheet();
   const linha = aba.getActiveCell().getRow();
   if (aba.getName() !== 'Pauta editorial' || linha <= 1) throw new Error('Selecione um artigo na aba "Pauta editorial".');
+  return enviarImagensSiteLinha_(aba, linha);
+}
+
+// Núcleo sem depender da célula ativa: usado pelo fluxo completo
+// automático, que roda em contexto de gatilho (sem seleção de célula).
+function enviarImagensSiteLinha_(aba, linha) {
+  const planilha = SpreadsheetApp.getActiveSpreadsheet();
   const ultimaColuna = aba.getLastColumn();
   const cabecalhos = aba.getRange(1, 1, 1, ultimaColuna).getDisplayValues()[0];
   const valores = aba.getRange(linha, 1, 1, ultimaColuna).getDisplayValues()[0];
@@ -72,7 +79,7 @@ function enviarImagensSiteSelecionadas() {
   const sourceKey = 'pauta-' + id;
   const midias = topcNormalizarMidiasPorArquivo_(topcObterMidiasConcluidas_(linha, slug));
   if (!midias.length) throw new Error(topcDiagnosticarFilaDaPauta_(linha, slug));
-  const envelope = topcMontarEnvelopeSelecionado_();
+  const envelope = topcMontarEnvelopeLinha_(aba, linha);
   const referencedMediaKeys = envelope.document.blocks.filter(function(block) { return block.type === 'image'; }).map(function(block) { return block.mediaKey; });
   const resultados = [];
   midias.forEach(function(media) {
@@ -83,4 +90,5 @@ function enviarImagensSiteSelecionadas() {
   const reutilizadas = resultados.length - criadas;
   Logger.log(JSON.stringify({ total: resultados.length, created: criadas, reused: reutilizadas }));
   planilha.toast(resultados.length + ' imagens processadas: ' + criadas + ' novas e ' + reutilizadas + ' reutilizadas.', 'Top Comparativos', 8);
+  return resultados;
 }
