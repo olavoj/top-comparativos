@@ -31,22 +31,18 @@ function topcNormalizarRevisaoEditorial_(resultado) {
     if (lendoMetadados && bloco && bloco.type === 'paragraph') {
       const texto = String(bloco.text || '').trim();
       const chave = rotulos[texto.toUpperCase()];
-      if (chave === 'secondaryKeywords') {
-        const keywords = [];
+      if (chave) {
+        const valores = [];
         indice += 1;
         while (indice < blocos.length) {
           const candidato = blocos[indice];
           if (topcEhInicioH1_(candidato) || topcEhInicioConteudoSeguro_(candidato)) break;
           if (candidato && candidato.type === 'image') { conteudo.push(candidato); indice += 1; continue; }
-          if (candidato && candidato.type === 'paragraph') keywords.push(String(candidato.text || '').trim());
+          if (candidato && candidato.type === 'paragraph' && rotulos[String(candidato.text || '').trim().toUpperCase()]) break;
+          if (candidato && candidato.type === 'paragraph') valores.push(String(candidato.text || '').trim());
           indice += 1;
         }
-        metadados.secondaryKeywords = keywords.filter(Boolean).join(', ');
-        continue;
-      }
-      if (chave) {
-        const valor = blocos[indice + 1];
-        if (valor && valor.type === 'paragraph') { metadados[chave] = String(valor.text || '').trim(); indice += 2; } else indice += 1;
+        metadados[chave] = valores.filter(Boolean).join(', ');
         continue;
       }
     }
