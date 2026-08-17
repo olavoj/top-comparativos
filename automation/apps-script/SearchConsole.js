@@ -1,15 +1,18 @@
-// Puxa dados do Google Search Console direto pela Search Console API,
-// usando o serviço avançado do Apps Script (sem depender de conectores
-// de terceiros). Requer habilitar o serviço avançado "Search Console
-// API" no projeto (Serviços > Search Console API) e a mesma API no
-// projeto do Google Cloud vinculado ao script.
+// Puxa dados do Google Search Console direto pela Search Console API
+// REST (searchconsole.googleapis.com), autenticando com o token OAuth
+// do próprio script — sem serviço avançado (não existe um para o
+// Search Console) e sem depender de conectores de terceiros. Requer
+// que a Search Console API esteja ativada no projeto do Google Cloud
+// vinculado ao script e que o escopo "webmasters.readonly" esteja
+// declarado em appsscript.json.
 
 const SEARCH_CONSOLE_CONFIG = {
   SITE_URL: '', // ex.: 'https://www.topcomparativos.com/' ou 'sc-domain:topcomparativos.com'
   SEMANAS: 3,
   DIAS_DE_ATRASO: 3, // o GSC costuma levar 2-3 dias para consolidar os dados mais recentes
   DIMENSOES: ['date', 'query', 'page'],
-  ABA: 'Search Console'
+  ABA: 'Search Console',
+  API_URL: 'https://searchconsole.googleapis.com/webmasters/v3/sites/'
 };
 
 function topcFormatarDataISO_(data) {
@@ -79,6 +82,43 @@ function topcEscreverDadosSearchConsole_(planilha, nomeAba, linhas) {
   return aba;
 }
 
+function topcConsultarSearchConsoleApi_(siteUrl, requisicao) {
+  const url = SEARCH_CONSOLE_CONFIG.API_URL +
+    encodeURIComponent(siteUrl) + '/searchAnalytics/query';
+
+  const resposta = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      Authorization: 'Bearer ' + ScriptApp.getOAuthToken()
+    },
+    payload: JSON.stringify(requisicao),
+    muteHttpExceptions: true
+  });
+
+  const codigo = resposta.getResponseCode();
+  const textoResposta = resposta.getContentText();
+  let dados;
+
+  try {
+    dados = JSON.parse(textoResposta);
+  } catch (erro) {
+    throw new Error(
+      'A Search Console API retornou uma resposta inválida. Código HTTP: ' +
+      codigo
+    );
+  }
+
+  if (codigo < 200 || codigo >= 300) {
+    const mensagem = dados.error?.message || textoResposta;
+    throw new Error(
+      'Erro da Search Console API (' + codigo + '): ' + mensagem
+    );
+  }
+
+  return dados;
+}
+
 function topcPuxarDadosSearchConsole_() {
   const siteUrl = String(SEARCH_CONSOLE_CONFIG.SITE_URL || '').trim();
 
@@ -102,7 +142,7 @@ function topcPuxarDadosSearchConsole_() {
     SEARCH_CONSOLE_CONFIG.DIMENSOES
   );
 
-  const resposta = SearchConsole.Searchanalytics.query(requisicao, siteUrl);
+  const resposta = topcConsultarSearchConsoleApi_(siteUrl, requisicao);
 
   const linhas = topcMontarLinhasSearchConsole_(
     SEARCH_CONSOLE_CONFIG.DIMENSOES,
