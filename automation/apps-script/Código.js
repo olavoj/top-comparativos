@@ -29,6 +29,10 @@ function topcAdicionarFerramentasMenu_(menu, ui) {
           'Reabrir falhas de lista selecionadas',
           'reabrirFalhasListItemSelecionadas'
         )
+        .addItem(
+          'Puxar dados do Search Console (últimas 3 semanas)',
+          'puxarDadosSearchConsoleUltimasSemanas'
+        )
     );
 }
 

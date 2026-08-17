@@ -1,6 +1,13 @@
 {
   "timeZone": "America/Sao_Paulo",
   "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "SearchConsole",
+        "version": "v1",
+        "serviceId": "webmasters"
+      }
+    ]
   },
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8"
