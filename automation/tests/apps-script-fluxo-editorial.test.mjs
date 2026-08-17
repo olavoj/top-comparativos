@@ -103,6 +103,10 @@ test('o menu de ferramentas oferece o reparo da fila de imagens', () => {
     [
       'Reabrir falhas de lista selecionadas',
       'reabrirFalhasListItemSelecionadas'
+    ],
+    [
+      'Puxar dados do Search Console (últimas 3 semanas)',
+      'puxarDadosSearchConsoleUltimasSemanas'
     ]
   ]);
 
