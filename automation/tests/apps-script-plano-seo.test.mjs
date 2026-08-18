@@ -236,6 +236,68 @@ test('topcObterStatusPlanoLinha_ só considera aprovado com status exato "Aprova
   assert.equal(api.topcObterStatusPlanoLinha_(abaAprovada, 2).aprovado, true);
 });
 
+// Aba que cresce de verdade quando uma coluna nova é adicionada, ao
+// contrário de abaFake (que tem cabeçalhos fixos) — precisa disso pra
+// testar topcGarantirColuna_ de forma realista.
+function abaCrescivel(headers) {
+  const linhas = { 1: headers.slice() };
+
+  return {
+    getLastColumn: () => linhas[1].length,
+    getRange(row, col, numRows, numCols) {
+      if (numRows === undefined) {
+        return {
+          getDisplayValue: () => String((linhas[row] || [])[col - 1] ?? ''),
+          setValue: (v) => {
+            linhas[row] = linhas[row] || [];
+            linhas[row][col - 1] = v;
+          }
+        };
+      }
+      return {
+        getDisplayValues: () => [(linhas[row] || []).slice(col - 1, col - 1 + numCols)]
+      };
+    },
+    _linhas: linhas
+  };
+}
+
+test('topcGarantirColuna_ cria a coluna no fim quando ela não existe', () => {
+  const api = load([scripts.codigo, scripts.planoSeo]);
+  const aba = abaCrescivel(['Título', 'Status']);
+
+  const indice = api.topcGarantirColuna_(aba, 'Link do plano SEO');
+
+  assert.equal(indice, 3);
+  assert.equal(aba._linhas[1][2], 'Link do plano SEO');
+});
+
+test('topcGarantirColuna_ reaproveita a coluna quando ela já existe, sem duplicar', () => {
+  const api = load([scripts.codigo, scripts.planoSeo]);
+  const aba = abaCrescivel(['Título', 'Status do plano', 'Observações']);
+
+  const indice = api.topcGarantirColuna_(aba, 'Status do plano');
+
+  assert.equal(indice, 2);
+  assert.equal(aba.getLastColumn(), 3);
+});
+
+test('topcGarantirColunasPlanoSeo_ cria as cinco colunas do plano de uma vez', () => {
+  const api = load([scripts.codigo, scripts.planoSeo]);
+  const aba = abaCrescivel(['Título']);
+
+  api.topcGarantirColunasPlanoSeo_(aba);
+
+  assert.deepEqual(Array.from(aba._linhas[1]), [
+    'Título',
+    'Link do plano SEO',
+    'Status do plano',
+    'Aprovado por',
+    'Aprovado em',
+    'Hash do plano'
+  ]);
+});
+
 test('analisarSeoLinha_ exige um link de pesquisa antes de chamar o Claude', () => {
   const api = load([scripts.codigo, scripts.analiseSeo, scripts.planoSeo]);
 

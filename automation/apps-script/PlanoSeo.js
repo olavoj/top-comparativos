@@ -152,10 +152,54 @@ function analisarSeoSelecionado() {
   }
 }
 
+const TOPC_COLUNAS_PLANO_SEO = [
+  'Link do plano SEO',
+  'Status do plano',
+  'Aprovado por',
+  'Aprovado em',
+  'Hash do plano'
+];
+
+// Cria, se ainda não existir, cada cabeçalho de coluna passado — mesma
+// ideia de topcPersistirVersaoSite_ (Publish.js) para "Versão no site":
+// procura pelo texto do cabeçalho e só acrescenta uma coluna nova no
+// fim da planilha se não achar. Não sobrescreve nada que já exista.
+function topcGarantirColuna_(aba, nomeColuna) {
+  const ultimaColuna = aba.getLastColumn();
+  const cabecalhos = ultimaColuna
+    ? aba.getRange(1, 1, 1, ultimaColuna).getDisplayValues()[0]
+    : [];
+
+  const indiceExistente = cabecalhos.findIndex(function (cabecalho) {
+    return String(cabecalho).trim() === nomeColuna;
+  });
+
+  if (indiceExistente !== -1) {
+    return indiceExistente + 1;
+  }
+
+  const novaColuna = ultimaColuna + 1;
+  aba.getRange(1, novaColuna).setValue(nomeColuna);
+
+  return novaColuna;
+}
+
+function topcGarantirColunasPlanoSeo_(aba) {
+  TOPC_COLUNAS_PLANO_SEO.forEach(function (nomeColuna) {
+    topcGarantirColuna_(aba, nomeColuna);
+  });
+}
+
 // Núcleo sem UI, mesmo padrão de gerarArtigoLinha_: lê a pesquisa da
 // linha, chama a análise estruturada no Claude, cria o Doc do plano e
 // grava as colunas — sem tocar em nada além disso.
 function analisarSeoLinha_(aba, linha) {
+  // As colunas do plano SEO são criadas sozinhas, na hora, se ainda não
+  // existirem — igual "Versão no site" no passo 5. As demais (Título,
+  // Palavra-chave etc.) continuam exigidas de verdade: são dados que
+  // alguém precisa ter preenchido, não cabeçalhos que dá pra inventar.
+  topcGarantirColunasPlanoSeo_(aba);
+
   const colunas = obterColunas_(aba);
 
   validarColunas_(colunas, [
@@ -166,11 +210,6 @@ function analisarSeoLinha_(aba, linha) {
     'Categoria',
     'Status',
     'Link da pesquisa',
-    'Link do plano SEO',
-    'Status do plano',
-    'Aprovado por',
-    'Aprovado em',
-    'Hash do plano',
     'Observações'
   ]);
 

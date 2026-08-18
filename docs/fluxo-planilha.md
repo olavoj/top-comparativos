@@ -77,14 +77,12 @@ depois com o mesmo nome de coluna.
 `Link do artigo`, `Link da revisão`, `Link final`, `Status das imagens`,
 `Observações`, `Versão no site`.
 
-Para usar o plano SEO (`1c`), a aba também precisa das colunas
-`Link do plano SEO`, `Status do plano`, `Aprovado por`, `Aprovado em` e
-`Hash do plano` — crie-as manualmente antes de rodar o comando; ele não
-as cria sozinho (ao contrário de `Versão no site`, no passo 5).
-
-A coluna `Versão no site` é criada automaticamente no passo 5 quando ainda
-não existe. As demais precisam existir com o nome exato: os comandos
-localizam as colunas pelo texto do cabeçalho.
+As colunas `Versão no site` (passo 5) e `Link do plano SEO`,
+`Status do plano`, `Aprovado por`, `Aprovado em`, `Hash do plano`
+(comando `1c`) são criadas automaticamente na primeira vez que o
+comando correspondente roda, se ainda não existirem. As demais
+precisam existir com o nome exato: os comandos localizam as colunas
+pelo texto do cabeçalho.
 
 ## Erros comuns
 
