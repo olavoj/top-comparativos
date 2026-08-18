@@ -1395,6 +1395,18 @@ function enfileirarImagensLinha_(aba, linha) {
 
     const documentoFinal = criarDocumentoFinal_(pauta);
 
+    // Grava o link assim que o Doc final existe, antes de qualquer etapa
+    // que possa falhar depois (instalar gatilho, gravar fila) — sem isso,
+    // uma falha tardia deixa "Link final" vazio mesmo com o Doc já criado
+    // e a fila já em andamento, exigindo recuperação manual.
+    atualizarValor_(
+      aba,
+      linha,
+      colunas,
+      'Link final',
+      documentoFinal.getUrl()
+    );
+
     const marcadores = prepararMarcadoresImagens_(
       documentoFinal.getId(),
       pauta,
@@ -1410,14 +1422,6 @@ function enfileirarImagensLinha_(aba, linha) {
     );
 
     instalarGatilhoImagens_();
-
-    atualizarValor_(
-      aba,
-      linha,
-      colunas,
-      'Link final',
-      documentoFinal.getUrl()
-    );
 
     atualizarValor_(
       aba,
