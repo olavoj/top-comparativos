@@ -73,6 +73,21 @@ foi mesmo inserida no documento antes de repetir os passos 5 a 7.
 
 **"A pauta não possui Versão no site"** — falta executar o passo 5.
 
+## Pesquisa ampliada (opcional)
+
+O item `1b. Pesquisar (ampliada)` roda seis consultas ao Perplexity em vez
+de uma — palavra-chave principal, variação comercial, informacional, de
+comparação, de perguntas e de alternativas/problemas — e grava um único
+Doc com os resultados brutos de cada consulta separados (URL, título,
+domínio, data), sem misturar interpretação. Escreve na mesma coluna
+`Link da pesquisa` que o passo 1 normal, então pode ser usada no lugar
+dele a qualquer momento: o resto do fluxo não diferencia qual dos dois
+gerou o documento.
+
+Use quando quiser uma base de pesquisa mais ampla antes de aprovar um
+plano de conteúdo; para pautas simples, o passo 1 original continua
+suficiente e mais barato (uma chamada em vez de seis).
+
 ## Propriedades do script
 
 `PERPLEXITY_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` e

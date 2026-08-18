@@ -51,6 +51,10 @@ function onOpen() {
       'pesquisarPautaSelecionada'
     )
     .addItem(
+      '1b. Pesquisar (ampliada)',
+      'pesquisarPautaAmpliadaSelecionada'
+    )
+    .addItem(
       '2. Gerar artigo com Claude',
       'gerarArtigoSelecionado'
     )
