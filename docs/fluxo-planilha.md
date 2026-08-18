@@ -47,12 +47,40 @@ com "A pauta não possui Versão no site".
 Depois de qualquer correção no documento final, refaça 5, 6 e 7 nessa
 ordem: o passo 7 publica exatamente a versão registrada no passo 5.
 
+## Plano SEO (opcional)
+
+O item `1c. Analisar SEO e gerar plano` lê a pesquisa da linha (`Link da
+pesquisa`, seja do passo 1 ou do 1b) e pede ao Claude uma análise
+estruturada — intenção de busca, mapa de palavras-chave, estrutura de
+H2/H3, diferenciais, fontes e riscos — usando *tool use* forçado em vez
+de texto livre. A resposta é validada campo a campo antes de qualquer
+gravação; se vier incompleta ou em formato errado, a etapa para com
+`Status do plano = Erro` e nada é criado.
+
+Se a validação passar, um Doc "Plano SEO — &lt;título&gt;" é criado e
+`Status do plano` vira `Plano gerado`. A aprovação é manual: edite essa
+coluna para `Aprovado` depois de revisar o Doc. Enquanto não estiver
+`Aprovado`, o `▶ Rodar fluxo completo (1-7)` para antes de gerar o
+artigo e avisa qual é o status atual — pautas sem plano (coluna nunca
+preenchida) seguem o fluxo de sempre, sem essa exigência.
+
+Rodar `1c` de novo sobre uma pauta já aprovada gera um plano novo e
+**limpa a aprovação anterior** (`Status do plano` volta para
+`Plano gerado`, `Aprovado por`/`Aprovado em` ficam vazios) — a aprovação
+vale para o conteúdo que foi revisado, não para qualquer coisa que venha
+depois com o mesmo nome de coluna.
+
 ## Colunas obrigatórias na aba `Pauta editorial`
 
 `ID`, `Título`, `Tipo`, `Pilar relacionado`, `Palavra-chave principal`,
 `Intenção`, `Categoria`, `Status`, `Slug`, `Link da pesquisa`,
 `Link do artigo`, `Link da revisão`, `Link final`, `Status das imagens`,
 `Observações`, `Versão no site`.
+
+Para usar o plano SEO (`1c`), a aba também precisa das colunas
+`Link do plano SEO`, `Status do plano`, `Aprovado por`, `Aprovado em` e
+`Hash do plano` — crie-as manualmente antes de rodar o comando; ele não
+as cria sozinho (ao contrário de `Versão no site`, no passo 5).
 
 A coluna `Versão no site` é criada automaticamente no passo 5 quando ainda
 não existe. As demais precisam existir com o nome exato: os comandos

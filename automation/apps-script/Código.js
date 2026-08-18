@@ -55,6 +55,10 @@ function onOpen() {
       'pesquisarPautaAmpliadaSelecionada'
     )
     .addItem(
+      '1c. Analisar SEO e gerar plano',
+      'analisarSeoSelecionado'
+    )
+    .addItem(
       '2. Gerar artigo com Claude',
       'gerarArtigoSelecionado'
     )
@@ -2433,6 +2437,22 @@ function executarFluxoCompletoSelecionado() {
 
     if (!obterValor_(aba, linha, colunas, 'Link da pesquisa')) {
       pesquisarPautaLinha_(aba, linha);
+    }
+
+    // Se existe um plano SEO para esta linha, ele precisa estar
+    // aprovado antes de gerar o artigo — pautas sem plano (fluxo
+    // legado, coluna nunca preenchida) seguem direto, sem exigir nada
+    // novo.
+    const statusPlano = topcObterStatusPlanoLinha_(aba, linha);
+
+    if (statusPlano.existe && !statusPlano.aprovado) {
+      SpreadsheetApp.getUi().alert(
+        'Existe um plano SEO para esta pauta, mas o status é "' +
+        (statusPlano.status || '(vazio)') + '", não "Aprovado". ' +
+        'Aprove o plano (coluna "Status do plano") antes de rodar o ' +
+        'fluxo completo.'
+      );
+      return;
     }
 
     if (!obterValor_(aba, linha, colunas, 'Link do artigo')) {
