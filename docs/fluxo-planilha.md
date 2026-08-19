@@ -6,16 +6,28 @@ na aba `Pauta editorial`.
 ## Rodar o fluxo inteiro com um clique
 
 O item `▶ Rodar fluxo completo (1-7)` roda as sete etapas em sequência
-para a linha selecionada, sem publicar clique a clique:
+para a linha selecionada, sem publicar clique a clique. Cada etapa roda
+numa execução separada, encadeada por um gatilho de poucos segundos, em
+vez de tudo numa chamada só: pesquisa, geração de artigo e revisão usam
+prompts grandes no Perplexity/Claude, e empilhar as três facilmente
+estoura o limite de 6 minutos de execução do Apps Script (conta
+gratuita), matando o fluxo no meio sem nenhuma imagem sequer chegar a
+ser enfileirada. Rodando uma etapa por vez, cada chamada de API tem seu
+próprio orçamento de tempo.
 
-1. Executa pesquisa, artigo e revisão na hora (pula qualquer etapa cujo
-   link já esteja preenchido, então também serve para retomar uma pauta
-   parada no meio).
-2. Prepara a fila de imagens (etapa 4) e volta o controle para você — a
-   fila roda em segundo plano, uma imagem por minuto, como já acontecia.
+1. Executa pesquisa, artigo e revisão, uma etapa por clique de gatilho
+   (pula qualquer etapa cujo link já esteja preenchido, então também
+   serve para retomar uma pauta parada no meio).
+2. Prepara a fila de imagens (etapa 4) — a fila roda em segundo plano,
+   uma imagem por minuto, como já acontecia.
 3. Quando a última imagem da fila termina, o script continua sozinho:
    envia o rascunho ao site, envia as imagens e **publica o artigo**,
    sem nenhum clique adicional.
+
+Não precisa manter a planilha aberta enquanto o fluxo roda: os gatilhos
+disparam no servidor. Só é possível ter uma linha em fluxo automático
+por vez; tentar iniciar uma segunda antes da primeira terminar mostra um
+aviso pedindo para aguardar.
 
 Isso significa que o artigo pode ir do zero até publicado no site sem
 revisão humana no meio do caminho. Os prompts de geração e revisão do

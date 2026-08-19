@@ -156,9 +156,27 @@ test('não faz nada quando a linha não está marcada para fluxo automático', (
   assert.equal(aba.getRange(2, 10).getDisplayValue(), '');
 });
 
+function scriptAppDupla() {
+  const triggers = [];
+
+  return {
+    newTrigger(handler) {
+      const gatilho = { handler, timeBased: () => gatilho, after: () => gatilho };
+      gatilho.create = () => { triggers.push({ handler }); return gatilho; };
+      return gatilho;
+    },
+    getProjectTriggers: () => triggers.map(t => ({
+      getHandlerFunction: () => t.handler
+    })),
+    deleteTrigger: () => { triggers.length = 0; },
+    triggers
+  };
+}
+
 test('o fluxo completo pula etapas já feitas, enfileira imagens e marca continuação automática', () => {
   const chamadas = [];
   const alertas = [];
+  const toasts = [];
   const valores = valoresBase();
   valores[8] = 'Na fila'; // Status das imagens ainda não concluído
   const aba = abaDupla(HEADERS, valores);
@@ -166,17 +184,21 @@ test('o fluxo completo pula etapas já feitas, enfileira imagens e marca continu
   aba.getActiveCell = () => ({ getRow: () => 2 });
 
   const planilha = {
-    getActiveSheet: () => aba
+    getActiveSheet: () => aba,
+    getSheetByName: () => aba,
+    toast: (...args) => toasts.push(args)
   };
 
   const propertiesService = propertiesServiceDupla({});
+  const scriptApp = scriptAppDupla();
 
   const api = load([scripts.codigo, scripts.planoSeo], {
     SpreadsheetApp: {
       getActiveSpreadsheet: () => planilha,
       getUi: () => ({ alert: msg => alertas.push(msg) })
     },
-    PropertiesService: propertiesService
+    PropertiesService: propertiesService,
+    ScriptApp: scriptApp
   });
 
   api.pesquisarPautaLinha_ = () => chamadas.push('pesquisa');
@@ -190,11 +212,85 @@ test('o fluxo completo pula etapas já feitas, enfileira imagens e marca continu
   api.executarFluxoCompletoSelecionado();
 
   // Link da pesquisa, do artigo e da revisão já estavam preenchidos na
-  // linha de teste, então só a etapa de imagens (ainda "Na fila") roda.
+  // linha de teste, então só a etapa de imagens (ainda "Na fila") roda,
+  // numa única execução (nada fica agendado para depois).
   assert.deepEqual(chamadas, ['imagens']);
   assert.equal(propertiesService.props.AUTO_FLUXO_guia, 'true');
+  assert.equal(propertiesService.props.AUTO_FLUXO_LINHA, undefined);
+  assert.equal(scriptApp.triggers.length, 0);
   assert.equal(alertas.length, 1);
-  assert.match(alertas[0], /sozinhos/);
+  assert.match(alertas[0], /segundo plano/);
+  assert.equal(toasts.length, 1);
+  assert.match(toasts[0][0], /sozinhos/);
+});
+
+test('roda uma etapa por vez e agenda a próxima em vez de empilhar tudo numa execução', () => {
+  const chamadas = [];
+  const valores = valoresBase();
+  valores[4] = ''; // Link da pesquisa vazio: só essa etapa deve rodar agora
+  valores[5] = '';
+  valores[6] = '';
+  const aba = abaDupla(HEADERS, valores);
+  aba.getName = () => 'Pauta editorial';
+  aba.getActiveCell = () => ({ getRow: () => 2 });
+
+  const planilha = {
+    getActiveSheet: () => aba,
+    getSheetByName: () => aba,
+    toast: () => {}
+  };
+
+  const propertiesService = propertiesServiceDupla({});
+  const scriptApp = scriptAppDupla();
+
+  const api = load([scripts.codigo], {
+    SpreadsheetApp: {
+      getActiveSpreadsheet: () => planilha,
+      getUi: () => ({ alert: () => {} })
+    },
+    PropertiesService: propertiesService,
+    ScriptApp: scriptApp
+  });
+
+  api.pesquisarPautaLinha_ = () => chamadas.push('pesquisa');
+  api.gerarArtigoLinha_ = () => chamadas.push('artigo');
+  api.revisarArtigoLinha_ = () => chamadas.push('revisao');
+  api.enfileirarImagensLinha_ = () => chamadas.push('imagens');
+
+  api.executarFluxoCompletoSelecionado();
+
+  // Só a pesquisa roda nesta execução; artigo e revisão ficam para
+  // execuções futuras disparadas pelo gatilho agendado.
+  assert.deepEqual(chamadas, ['pesquisa']);
+  assert.equal(propertiesService.props.AUTO_FLUXO_LINHA, '2');
+  assert.equal(scriptApp.triggers.length, 1);
+  assert.equal(scriptApp.triggers[0].handler, 'avancarFluxoCompletoAutomatico');
+});
+
+test('recusa iniciar um segundo fluxo automático enquanto outra linha está em andamento', () => {
+  const alertas = [];
+  const aba = abaDupla(HEADERS, valoresBase());
+  aba.getName = () => 'Pauta editorial';
+  aba.getActiveCell = () => ({ getRow: () => 2 });
+
+  const planilha = { getActiveSheet: () => aba, getSheetByName: () => aba, toast: () => {} };
+  const propertiesService = propertiesServiceDupla({ AUTO_FLUXO_LINHA: '5' });
+  const scriptApp = scriptAppDupla();
+
+  const api = load([scripts.codigo], {
+    SpreadsheetApp: {
+      getActiveSpreadsheet: () => planilha,
+      getUi: () => ({ alert: msg => alertas.push(msg) })
+    },
+    PropertiesService: propertiesService,
+    ScriptApp: scriptApp
+  });
+
+  api.executarFluxoCompletoSelecionado();
+
+  assert.equal(alertas.length, 1);
+  assert.match(alertas[0], /linha 5/);
+  assert.equal(propertiesService.props.AUTO_FLUXO_LINHA, '5');
 });
 
 test('registra e limpa a falha quando uma das etapas 5 a 7 quebra', () => {

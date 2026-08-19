@@ -1168,6 +1168,32 @@ REVISÃO OBRIGATÓRIA
 - Não use Markdown para negrito.
 - Não utilize dois asteriscos em nenhuma parte do texto.
 - Não coloque a resposta dentro de bloco de código.
+- Não use travessão (—) em nenhuma parte do texto. Reescreva a frase com
+  vírgula, ponto ou conectivo comum em vez de usar " — ".
+
+SINAIS DE TEXTO GERADO POR IA: reescreva qualquer trecho que caia nestes
+padrões, mesmo que a informação em si esteja correta.
+
+- Excesso de conectivos formais como "além disso", "por conseguinte",
+  "em suma", "vale ressaltar", "nesse sentido". Use no máximo um por
+  artigo, e só se soar natural.
+- Frases todas com o mesmo comprimento e ritmo. Varie frases curtas e
+  longas como um redator humano faria.
+- Tom neutro e genérico sem nenhum ponto de vista. Dê uma opinião
+  editorial concreta quando fizer sentido, apoiada na pesquisa.
+- Conclusão em fórmula genérica ("concluindo", "diante do exposto", "em
+  resumo") que só repete o que já foi dito. Feche o artigo com algo que
+  agregue, não com um resumo disfarçado.
+- Profundidade aparente sem dado concreto: evite parágrafos que soam
+  analíticos mas não citam nenhum número, exemplo ou fonte específica da
+  pesquisa.
+- Estruturas do tipo "não é X, é Y" e listas de exatamente três itens
+  paralelos usadas em excesso. Varie a forma de apresentar comparações.
+- Perfeição artificial: gramática impecável ao ponto de soar robótico.
+  Não é para inserir erros, mas para preferir frases mais diretas e
+  menos always-polished quando isso soar mais natural.
+- Nunca invente dado, estatística ou referência que não esteja na
+  pesquisa fornecida. Se um número não está na pesquisa, não afirme.
 
 NÃO É PERMITIDO
 
@@ -1254,6 +1280,8 @@ function limparRespostaClaude_(texto) {
     .replace(/```\s*$/i, '')
     .replace(/\*\*/g, '')
     .replace(/characterísticos/gi, 'característicos')
+    .replace(/[ \t]*—[ \t]*/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
     .trim();
 
   const obrigatorios = [
@@ -2542,11 +2570,62 @@ function executarFluxoCompletoSelecionado() {
     return;
   }
 
+  const propriedades = PropertiesService.getScriptProperties();
+  const linhaEmAndamento = propriedades.getProperty('AUTO_FLUXO_LINHA');
+
+  if (linhaEmAndamento && Number(linhaEmAndamento) !== linha) {
+    SpreadsheetApp.getUi().alert(
+      'Já existe um fluxo automático em andamento na linha ' +
+      linhaEmAndamento +
+      '. Aguarde terminar antes de iniciar outro.'
+    );
+    return;
+  }
+
+  propriedades.setProperty('AUTO_FLUXO_LINHA', String(linha));
+
+  SpreadsheetApp.getUi().alert(
+    'Fluxo iniciado! Cada etapa roda em segundo plano, uma de cada vez, ' +
+    'para não esbarrar no limite de execução do Google. Não precisa ' +
+    'manter a planilha aberta; acompanhe pela coluna Status/Observações.'
+  );
+
+  avancarFluxoCompletoAutomatico();
+}
+
+// Roda só a próxima etapa pendente do fluxo completo e reagenda a
+// seguinte via gatilho, em vez de rodar pesquisa + artigo + revisão numa
+// única execução: cada chamada ao Perplexity/Claude pode levar bastante
+// tempo sozinha, e empilhar as três estourava os 6 minutos de execução
+// do Apps Script, matando o fluxo antes mesmo de a fila de imagens ser
+// criada (nenhuma imagem gerada, nenhuma pendência visível na planilha).
+function avancarFluxoCompletoAutomatico() {
+  topcRemoverGatilhoFluxoCompleto_();
+
+  const propriedades = PropertiesService.getScriptProperties();
+  const linhaTexto = propriedades.getProperty('AUTO_FLUXO_LINHA');
+
+  if (!linhaTexto) {
+    return;
+  }
+
+  const linha = Number(linhaTexto);
+  const aba = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName('Pauta editorial');
+
+  if (!aba) {
+    propriedades.deleteProperty('AUTO_FLUXO_LINHA');
+    return;
+  }
+
   try {
     const colunas = obterColunas_(aba);
 
     if (!obterValor_(aba, linha, colunas, 'Link da pesquisa')) {
       pesquisarPautaLinha_(aba, linha);
+      topcAgendarProximaEtapaFluxoCompleto_();
+      return;
     }
 
     // gerarArtigoLinha_ checa sozinha se existe um plano SEO não
@@ -2554,10 +2633,14 @@ function executarFluxoCompletoSelecionado() {
     // duplicar a checagem aqui.
     if (!obterValor_(aba, linha, colunas, 'Link do artigo')) {
       gerarArtigoLinha_(aba, linha);
+      topcAgendarProximaEtapaFluxoCompleto_();
+      return;
     }
 
     if (!obterValor_(aba, linha, colunas, 'Link da revisão')) {
       revisarArtigoLinha_(aba, linha);
+      topcAgendarProximaEtapaFluxoCompleto_();
+      return;
     }
 
     const slug = obterValor_(aba, linha, colunas, 'Slug');
@@ -2568,12 +2651,13 @@ function executarFluxoCompletoSelecionado() {
     ) {
       enfileirarImagensLinha_(aba, linha);
       topcMarcarFluxoAutomatico_(slug);
+      propriedades.deleteProperty('AUTO_FLUXO_LINHA');
 
-      SpreadsheetApp.getUi().alert(
-        'Fluxo iniciado! Pesquisa, artigo e revisão prontos. ' +
-        'As imagens estão na fila e, quando terminarem, o envio ' +
-        'ao site e a publicação acontecem sozinhos. Acompanhe ' +
-        'pela coluna Status das imagens/Observações.'
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        'Pesquisa, artigo e revisão prontos. Imagens na fila: quando ' +
+        'terminarem, o envio ao site e a publicação acontecem sozinhos.',
+        'Top Comparativos',
+        8
       );
 
       return;
@@ -2583,14 +2667,46 @@ function executarFluxoCompletoSelecionado() {
     enviarImagensSiteLinha_(aba, linha);
     publicarArtigoSiteLinha_(aba, linha);
 
-    SpreadsheetApp.getUi().alert(
-      'Fluxo completo! Artigo publicado no site.'
+    propriedades.deleteProperty('AUTO_FLUXO_LINHA');
+
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      'Fluxo completo! Artigo publicado no site.',
+      'Top Comparativos',
+      8
     );
   } catch (erro) {
-    SpreadsheetApp.getUi().alert(
-      'O fluxo completo parou:\n\n' + erro.message
+    propriedades.deleteProperty('AUTO_FLUXO_LINHA');
+
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      'O fluxo completo parou: ' + erro.message,
+      'Top Comparativos',
+      8
     );
   }
+}
+
+function topcAgendarProximaEtapaFluxoCompleto_() {
+  topcRemoverGatilhoFluxoCompleto_();
+
+  ScriptApp
+    .newTrigger('avancarFluxoCompletoAutomatico')
+    .timeBased()
+    .after(1000)
+    .create();
+}
+
+function topcRemoverGatilhoFluxoCompleto_() {
+  ScriptApp
+    .getProjectTriggers()
+    .filter(function (gatilho) {
+      return (
+        gatilho.getHandlerFunction() ===
+        'avancarFluxoCompletoAutomatico'
+      );
+    })
+    .forEach(function (gatilho) {
+      ScriptApp.deleteTrigger(gatilho);
+    });
 }
 
 function removerGatilhoSeFilaVazia_() {
