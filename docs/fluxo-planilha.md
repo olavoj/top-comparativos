@@ -47,6 +47,38 @@ com "A pauta não possui Versão no site".
 Depois de qualquer correção no documento final, refaça 5, 6 e 7 nessa
 ordem: o passo 7 publica exatamente a versão registrada no passo 5.
 
+## Plano SEO (opcional)
+
+O item `1c. Analisar SEO e gerar plano` lê a pesquisa da linha (`Link da
+pesquisa`, seja do passo 1 ou do 1b) e pede ao Claude uma análise
+estruturada — intenção de busca, mapa de palavras-chave, estrutura de
+H2/H3, diferenciais, fontes e riscos — usando *tool use* forçado em vez
+de texto livre. A resposta é validada campo a campo antes de qualquer
+gravação; se vier incompleta ou em formato errado, a etapa para com
+`Status do plano = Erro` e nada é criado.
+
+Se a validação passar, um Doc "Plano SEO — &lt;título&gt;" é criado e
+`Status do plano` vira `Plano gerado`. A aprovação é manual: edite essa
+coluna para `Aprovado` depois de revisar o Doc. Enquanto não estiver
+`Aprovado`, o `▶ Rodar fluxo completo (1-7)` para antes de gerar o
+artigo e avisa qual é o status atual — pautas sem plano (coluna nunca
+preenchida) seguem o fluxo de sempre, sem essa exigência.
+
+Rodar `1c` de novo sobre uma pauta já aprovada gera um plano novo e
+**limpa a aprovação anterior** (`Status do plano` volta para
+`Plano gerado`, `Aprovado por`/`Aprovado em` ficam vazios) — a aprovação
+vale para o conteúdo que foi revisado, não para qualquer coisa que venha
+depois com o mesmo nome de coluna.
+
+Com o plano aprovado, o passo `2. Gerar artigo com Claude` passa a usar
+o **plano como fonte principal** — título recomendado, outline de
+H2/H3, ângulo editorial e diferenciais — em vez de só a pesquisa bruta;
+a pesquisa continua entrando no prompt, mas como apoio factual. Se
+existir um plano para a linha e ele **não** estiver `Aprovado`, o passo
+2 para com erro em vez de gerar o artigo, tanto rodando o item de menu
+diretamente quanto via fluxo completo. Pautas sem plano (coluna nunca
+preenchida) seguem exatamente como antes, só com a pesquisa.
+
 ## Colunas obrigatórias na aba `Pauta editorial`
 
 `ID`, `Título`, `Tipo`, `Pilar relacionado`, `Palavra-chave principal`,
@@ -54,9 +86,12 @@ ordem: o passo 7 publica exatamente a versão registrada no passo 5.
 `Link do artigo`, `Link da revisão`, `Link final`, `Status das imagens`,
 `Observações`, `Versão no site`.
 
-A coluna `Versão no site` é criada automaticamente no passo 5 quando ainda
-não existe. As demais precisam existir com o nome exato: os comandos
-localizam as colunas pelo texto do cabeçalho.
+As colunas `Versão no site` (passo 5) e `Link do plano SEO`,
+`Status do plano`, `Aprovado por`, `Aprovado em`, `Hash do plano`
+(comando `1c`) são criadas automaticamente na primeira vez que o
+comando correspondente roda, se ainda não existirem. As demais
+precisam existir com o nome exato: os comandos localizam as colunas
+pelo texto do cabeçalho.
 
 ## Erros comuns
 
@@ -72,6 +107,21 @@ a imagem correspondente à linha concluída da fila. Confirme que a imagem
 foi mesmo inserida no documento antes de repetir os passos 5 a 7.
 
 **"A pauta não possui Versão no site"** — falta executar o passo 5.
+
+## Pesquisa ampliada (opcional)
+
+O item `1b. Pesquisar (ampliada)` roda seis consultas ao Perplexity em vez
+de uma — palavra-chave principal, variação comercial, informacional, de
+comparação, de perguntas e de alternativas/problemas — e grava um único
+Doc com os resultados brutos de cada consulta separados (URL, título,
+domínio, data), sem misturar interpretação. Escreve na mesma coluna
+`Link da pesquisa` que o passo 1 normal, então pode ser usada no lugar
+dele a qualquer momento: o resto do fluxo não diferencia qual dos dois
+gerou o documento.
+
+Use quando quiser uma base de pesquisa mais ampla antes de aprovar um
+plano de conteúdo; para pautas simples, o passo 1 original continua
+suficiente e mais barato (uma chamada em vez de seis).
 
 ## Propriedades do script
 

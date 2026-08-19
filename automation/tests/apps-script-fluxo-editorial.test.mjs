@@ -8,7 +8,10 @@ const scripts = {
   envelope: new URL('../apps-script/EnvelopeImages.js', import.meta.url),
   upload: new URL('../apps-script/MediaUpload.js', import.meta.url),
   publish: new URL('../apps-script/Publish.js', import.meta.url),
-  pesquisa: new URL('../apps-script/Pesquisa.js', import.meta.url)
+  pesquisa: new URL('../apps-script/Pesquisa.js', import.meta.url),
+  pesquisaAmpliada: new URL('../apps-script/PesquisaAmpliada.js', import.meta.url),
+  analiseSeo: new URL('../apps-script/AnaliseSeo.js', import.meta.url),
+  planoSeo: new URL('../apps-script/PlanoSeo.js', import.meta.url)
 };
 
 function load(paths, extras = {}) {
@@ -68,6 +71,8 @@ test('o menu expõe as sete etapas do fluxo, do rascunho à publicação', () =>
   assert.deepEqual(itens, [
     ['▶ Rodar fluxo completo (1-7)', 'executarFluxoCompletoSelecionado'],
     ['1. Pesquisar pauta selecionada', 'pesquisarPautaSelecionada'],
+    ['1b. Pesquisar (ampliada)', 'pesquisarPautaAmpliadaSelecionada'],
+    ['1c. Analisar SEO e gerar plano', 'analisarSeoSelecionado'],
     ['2. Gerar artigo com Claude', 'gerarArtigoSelecionado'],
     ['3. Revisar artigo com Claude', 'revisarArtigoSelecionado'],
     ['4. Gerar imagens com Nano Banana', 'enfileirarImagensSelecionadas'],

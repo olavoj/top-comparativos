@@ -35,4 +35,10 @@ jobs:
 
       - name: Push Apps Script
         working-directory: automation/apps-script
-        run: clasp push
+        run: |
+          set -o pipefail
+          clasp push --force | tee /tmp/clasp-push.log
+          if grep -q "Skipping push" /tmp/clasp-push.log; then
+            echo "::error::clasp push was skipped instead of pushing — the deploy did not update the live Apps Script project." >&2
+            exit 1
+          fi

@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const scripts = {
-  codigo: new URL('../apps-script/Código.js', import.meta.url)
+  codigo: new URL('../apps-script/Código.js', import.meta.url),
+  planoSeo: new URL('../apps-script/PlanoSeo.js', import.meta.url)
 };
 
 function load(paths, extras = {}) {
@@ -76,7 +77,7 @@ test('continua sozinho até publicar quando o fluxo automático está marcado e 
     AUTO_FLUXO_guia: 'true'
   });
 
-  const api = load([scripts.codigo], {
+  const api = load([scripts.codigo, scripts.planoSeo], {
     PropertiesService: propertiesService,
     Utilities: {
       formatDate: () => '11/08/2026 10:00',
@@ -111,7 +112,7 @@ test('não continua quando a fila de imagens termina com pendências', () => {
     AUTO_FLUXO_guia: 'true'
   });
 
-  const api = load([scripts.codigo], {
+  const api = load([scripts.codigo, scripts.planoSeo], {
     PropertiesService: propertiesService,
     Utilities: { formatDate: () => '11/08/2026 10:00' },
     Session: { getScriptTimeZone: () => 'America/Sao_Paulo' }
@@ -141,7 +142,7 @@ test('não faz nada quando a linha não está marcada para fluxo automático', (
   const aba = abaDupla(HEADERS, valoresBase());
   const propertiesService = propertiesServiceDupla({});
 
-  const api = load([scripts.codigo], {
+  const api = load([scripts.codigo, scripts.planoSeo], {
     PropertiesService: propertiesService
   });
 
@@ -170,7 +171,7 @@ test('o fluxo completo pula etapas já feitas, enfileira imagens e marca continu
 
   const propertiesService = propertiesServiceDupla({});
 
-  const api = load([scripts.codigo], {
+  const api = load([scripts.codigo, scripts.planoSeo], {
     SpreadsheetApp: {
       getActiveSpreadsheet: () => planilha,
       getUi: () => ({ alert: msg => alertas.push(msg) })
@@ -202,7 +203,7 @@ test('registra e limpa a falha quando uma das etapas 5 a 7 quebra', () => {
     AUTO_FLUXO_guia: 'true'
   });
 
-  const api = load([scripts.codigo], {
+  const api = load([scripts.codigo, scripts.planoSeo], {
     PropertiesService: propertiesService,
     Utilities: { formatDate: () => '11/08/2026 10:00' },
     Session: { getScriptTimeZone: () => 'America/Sao_Paulo' }
