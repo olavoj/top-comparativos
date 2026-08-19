@@ -150,6 +150,40 @@ foi mesmo inserida no documento antes de repetir os passos 5 a 7.
 
 **"A pauta não possui Versão no site"** — falta executar o passo 5.
 
+**"A Versão no site não está no formato ISO-8601"** — a planilha converteu
+o texto da versão em data. Formate a coluna `Versão no site` como texto
+simples (`Formatar > Número > Texto simples`) e refaça o passo 5.
+
+**`HTTP 422: {"error":"editorial_publish_invalid"}`** — quem recusou foi o
+site, não a planilha: o rascunho chegou lá, mas não passou na validação
+editorial dele. O passo 7 não tem como saber o motivo exato, porque o site
+devolve só o código. Verifique nesta ordem:
+
+1. **Versão desatualizada.** O site troca a versão do artigo a cada
+   gravação. Se o passo 7 já rodou antes, ou se houve qualquer alteração
+   depois do passo 5, a `Versão no site` da planilha ficou velha. Refaça
+   5, 6 e 7 nessa ordem — sem pular o 5.
+2. **Artigo já publicado.** Confira a URL pública antes de repetir: uma
+   publicação bem-sucedida também invalida a versão registrada.
+3. **Exigências editoriais do site.** Rode
+   `Ferramentas > Diagnosticar publicação` e leia o log: ele mostra
+   fontes, produtos, capa, imagens do envelope e a versão enviada, sem
+   publicar nada. O envelope hoje sempre envia `products: []`, e a
+   validação de publicação do site exige pelo menos dois produtos com
+   link de afiliado.
+
+## Ferramentas
+
+| Comando | Para quê |
+|---------|----------|
+| Testar conexão com o site | Valida o HMAC |
+| Diagnosticar imagens da pauta | "Imagem não referenciada no envelope" |
+| Diagnosticar publicação | Falhas do passo 7; não publica nada |
+| Reparar fila de imagens | Fila parada em `Concluído com pendências` |
+| Reabrir falhas de lista selecionadas | Imagens que falharam dentro de listas |
+| Puxar dados do Search Console (últimas 3 semanas) | Desempenho das URLs publicadas |
+| Pausar/Retomar geração automática de imagens (Gemini) | Ver "Gerar imagens manualmente" acima |
+
 ## Pesquisa ampliada (opcional)
 
 O item `1b. Pesquisar (ampliada)` roda seis consultas ao Perplexity em vez
