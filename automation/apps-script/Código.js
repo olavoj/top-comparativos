@@ -2188,7 +2188,8 @@ function gerarImagemGemini_(prompt, proporcao) {
     parteImagem = partes.find(function (parte) {
       return (
         parte.inlineData &&
-        parte.inlineData.data
+        parte.inlineData.data &&
+        /^image\//i.test(parte.inlineData.mimeType || '')
       );
     });
 
