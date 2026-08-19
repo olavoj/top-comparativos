@@ -70,6 +70,15 @@ Rodar `1c` de novo sobre uma pauta já aprovada gera um plano novo e
 vale para o conteúdo que foi revisado, não para qualquer coisa que venha
 depois com o mesmo nome de coluna.
 
+Com o plano aprovado, o passo `2. Gerar artigo com Claude` passa a usar
+o **plano como fonte principal** — título recomendado, outline de
+H2/H3, ângulo editorial e diferenciais — em vez de só a pesquisa bruta;
+a pesquisa continua entrando no prompt, mas como apoio factual. Se
+existir um plano para a linha e ele **não** estiver `Aprovado`, o passo
+2 para com erro em vez de gerar o artigo, tanto rodando o item de menu
+diretamente quanto via fluxo completo. Pautas sem plano (coluna nunca
+preenchida) seguem exatamente como antes, só com a pesquisa.
+
 ## Colunas obrigatórias na aba `Pauta editorial`
 
 `ID`, `Título`, `Tipo`, `Pilar relacionado`, `Palavra-chave principal`,

@@ -408,6 +408,21 @@ function gerarArtigoLinha_(aba, linha) {
     throw new Error('Esta linha ainda não possui um link de pesquisa.');
   }
 
+  // Pautas sem plano SEO (coluna nunca preenchida) seguem o fluxo
+  // legado, só com a pesquisa. Pautas com plano exigem aprovação antes
+  // de gerar o artigo — e, quando aprovado, o plano vira a fonte
+  // principal do prompt, não só um gate de aprovação.
+  const linkPlano = obterValor_(aba, linha, colunas, 'Link do plano SEO');
+  const statusPlano = obterValor_(aba, linha, colunas, 'Status do plano');
+
+  if (linkPlano && statusPlano !== 'Aprovado') {
+    throw new Error(
+      'Existe um plano SEO para esta pauta, mas o status é "' +
+      (statusPlano || '(vazio)') + '", não "Aprovado". Aprove o plano ' +
+      '(coluna "Status do plano") antes de gerar o artigo.'
+    );
+  }
+
   const trava = LockService.getDocumentLock();
   let travaAdquirida = false;
 
@@ -426,7 +441,10 @@ function gerarArtigoLinha_(aba, linha) {
     SpreadsheetApp.flush();
 
     const pesquisa = lerDocumentoGoogle_(pauta.linkPesquisa);
-    const artigo = gerarArtigoNoClaude_(pauta, pesquisa);
+    const plano = linkPlano && statusPlano === 'Aprovado'
+      ? lerDocumentoGoogle_(linkPlano)
+      : '';
+    const artigo = gerarArtigoNoClaude_(pauta, pesquisa, plano);
     const documento = criarDocumentoArtigo_(pauta, artigo);
 
     atualizarValor_(
@@ -520,7 +538,7 @@ function extrairIdGoogle_(url) {
   return null;
 }
 
-function gerarArtigoNoClaude_(pauta, pesquisa) {
+function gerarArtigoNoClaude_(pauta, pesquisa, plano) {
   const apiKey = PropertiesService
     .getScriptProperties()
     .getProperty('ANTHROPIC_API_KEY');
@@ -531,7 +549,7 @@ function gerarArtigoNoClaude_(pauta, pesquisa) {
     );
   }
 
-  const prompt = montarPromptArtigo_(pauta, pesquisa);
+  const prompt = montarPromptArtigo_(pauta, pesquisa, plano);
 
   const payload = {
     model: 'claude-sonnet-5',
@@ -598,10 +616,30 @@ function gerarArtigoNoClaude_(pauta, pesquisa) {
   return conteudo;
 }
 
-function montarPromptArtigo_(pauta, pesquisa) {
+function montarPromptArtigo_(pauta, pesquisa, plano) {
   const tamanho = pauta.tipo === 'Pilar'
     ? 'Entre 2.500 e 3.500 palavras'
     : 'Entre 1.200 e 2.000 palavras';
+
+  // Com plano aprovado, ele é a fonte principal de estrutura e ângulo
+  // editorial — a pesquisa vira apoio para fatos e fontes, não a base
+  // da estrutura. Sem plano (pauta legada), o comportamento não muda:
+  // a pesquisa continua sendo a única fonte, como sempre foi.
+  const secaoPlano = plano
+    ? `
+PLANO SEO APROVADO (fonte principal — siga o título recomendado, a
+estrutura de H2/H3, a intenção de busca e os diferenciais definidos
+aqui; use a pesquisa abaixo só como apoio factual, não como estrutura)
+
+${plano}
+`
+    : '';
+
+  const instrucaoFonte = plano
+    ? 'Use o plano SEO acima como fonte principal do artigo. Se ele ' +
+      'recomendar um título ou slug diferente do informado abaixo, ' +
+      'use o do plano.'
+    : 'Use a pesquisa abaixo como fonte principal do artigo.';
 
   return `
 Você é o redator-chefe do Top Comparativos, um site brasileiro de
@@ -619,6 +657,8 @@ Categoria: ${pauta.categoria}
 Slug: ${pauta.slug}
 Pilar relacionado: ${pauta.pilar || 'Não informado'}
 Tamanho esperado: ${tamanho}
+${secaoPlano}
+${instrucaoFonte}
 
 PESQUISA EDITORIAL
 
@@ -2443,22 +2483,9 @@ function executarFluxoCompletoSelecionado() {
       pesquisarPautaLinha_(aba, linha);
     }
 
-    // Se existe um plano SEO para esta linha, ele precisa estar
-    // aprovado antes de gerar o artigo — pautas sem plano (fluxo
-    // legado, coluna nunca preenchida) seguem direto, sem exigir nada
-    // novo.
-    const statusPlano = topcObterStatusPlanoLinha_(aba, linha);
-
-    if (statusPlano.existe && !statusPlano.aprovado) {
-      SpreadsheetApp.getUi().alert(
-        'Existe um plano SEO para esta pauta, mas o status é "' +
-        (statusPlano.status || '(vazio)') + '", não "Aprovado". ' +
-        'Aprove o plano (coluna "Status do plano") antes de rodar o ' +
-        'fluxo completo.'
-      );
-      return;
-    }
-
+    // gerarArtigoLinha_ checa sozinha se existe um plano SEO não
+    // aprovado para a linha e para com erro nesse caso — não precisa
+    // duplicar a checagem aqui.
     if (!obterValor_(aba, linha, colunas, 'Link do artigo')) {
       gerarArtigoLinha_(aba, linha);
     }
