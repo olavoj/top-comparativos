@@ -112,6 +112,15 @@ test('o menu de ferramentas oferece o reparo da fila de imagens', () => {
     [
       'Puxar dados do Search Console (últimas 3 semanas)',
       'puxarDadosSearchConsoleUltimasSemanas'
+    ],
+    ['separator'],
+    [
+      'Pausar geração automática de imagens (Gemini)',
+      'pausarGeracaoAutomaticaImagens'
+    ],
+    [
+      'Retomar geração automática de imagens (Gemini)',
+      'retomarGeracaoAutomaticaImagens'
     ]
   ]);
 

@@ -33,7 +33,65 @@ function topcAdicionarFerramentasMenu_(menu, ui) {
           'Puxar dados do Search Console (últimas 3 semanas)',
           'puxarDadosSearchConsoleUltimasSemanas'
         )
+        .addSeparator()
+        .addItem(
+          'Pausar geração automática de imagens (Gemini)',
+          'pausarGeracaoAutomaticaImagens'
+        )
+        .addItem(
+          'Retomar geração automática de imagens (Gemini)',
+          'retomarGeracaoAutomaticaImagens'
+        )
     );
+}
+
+// Enquanto pausado, "4. Gerar imagens com Nano Banana" continua criando os
+// marcadores no documento e as linhas na Fila de imagens — com o prompt de
+// cada imagem já pronto na coluna correspondente — mas não instala o
+// gatilho que chama a API do Gemini. Serve para os dias sem crédito na
+// conta: o prompt fica disponível pra gerar a imagem manualmente em outro
+// lugar, sem a fila ficar tentando (e falhando) sozinha a cada minuto.
+function topcGeracaoImagensPausada_() {
+  return PropertiesService
+    .getScriptProperties()
+    .getProperty('IMAGENS_GERACAO_PAUSADA') === 'true';
+}
+
+function pausarGeracaoAutomaticaImagens() {
+  PropertiesService
+    .getScriptProperties()
+    .setProperty('IMAGENS_GERACAO_PAUSADA', 'true');
+
+  ScriptApp
+    .getProjectTriggers()
+    .filter(function(gatilho) {
+      return gatilho.getHandlerFunction() === 'processarFilaImagens';
+    })
+    .forEach(function(gatilho) {
+      ScriptApp.deleteTrigger(gatilho);
+    });
+
+  SpreadsheetApp.getUi().alert(
+    'Geração automática de imagens pausada. O passo 4 continua criando ' +
+    'os marcadores e os prompts na aba "Fila de imagens" (coluna Prompt), ' +
+    'mas não vai mais chamar o Gemini sozinho. Preencha manualmente a ' +
+    'coluna "ID do arquivo" com o ID do Drive de cada imagem gerada por ' +
+    'fora e use "Retomar geração automática de imagens" quando quiser que ' +
+    'o script volte a processar a fila.'
+  );
+}
+
+function retomarGeracaoAutomaticaImagens() {
+  PropertiesService
+    .getScriptProperties()
+    .deleteProperty('IMAGENS_GERACAO_PAUSADA');
+
+  instalarGatilhoImagens_();
+
+  SpreadsheetApp.getUi().alert(
+    'Geração automática de imagens retomada. Tarefas pendentes na fila ' +
+    'serão processadas a partir do próximo minuto.'
+  );
 }
 
 function onOpen() {
@@ -1461,14 +1519,18 @@ function enfileirarImagensLinha_(aba, linha) {
       marcadores
     );
 
-    instalarGatilhoImagens_();
+    const pausado = topcGeracaoImagensPausada_();
+
+    if (!pausado) {
+      instalarGatilhoImagens_();
+    }
 
     atualizarValor_(
       aba,
       linha,
       colunas,
       'Status das imagens',
-      'Na fila'
+      pausado ? 'Na fila (geração pausada)' : 'Na fila'
     );
 
     const novaObservacao =
@@ -1480,7 +1542,10 @@ function enfileirarImagensLinha_(aba, linha) {
       ) +
       '. Total: ' +
       marcadores.length +
-      ' imagens.';
+      ' imagens.' +
+      (pausado
+        ? ' Geração automática pausada — prompts prontos na aba "Fila de imagens".'
+        : '');
 
     atualizarValor_(
       aba,
@@ -2607,12 +2672,19 @@ function repararFilaImagensAtual() {
     }
   });
 
-  instalarGatilhoImagens_();
+  const pausado = topcGeracaoImagensPausada_();
+
+  if (!pausado) {
+    instalarGatilhoImagens_();
+  }
 
   SpreadsheetApp.getUi().alert(
     reabertas +
-    ' tarefa(s) reaberta(s). O processamento será retomado ' +
-    'automaticamente em até um minuto.'
+    ' tarefa(s) reaberta(s).' +
+    (pausado
+      ? ' Geração automática está pausada — use "Retomar geração ' +
+        'automática de imagens (Gemini)" para processar a fila.'
+      : ' O processamento será retomado automaticamente em até um minuto.')
   );
 }
 const TOPC_SITE_AUTOMATION = {

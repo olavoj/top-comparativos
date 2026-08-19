@@ -93,6 +93,36 @@ comando correspondente roda, se ainda não existirem. As demais
 precisam existir com o nome exato: os comandos localizam as colunas
 pelo texto do cabeçalho.
 
+## Gerar imagens manualmente (sem crédito no Gemini)
+
+`Ferramentas > Pausar geração automática de imagens (Gemini)` pausa a fila
+sem desligar o passo 4: `4. Gerar imagens com Nano Banana` continua criando
+os marcadores no documento final e as linhas na aba `Fila de imagens` —
+inclusive o prompt de cada imagem, pronto na coluna `Prompt` — mas não
+instala mais o gatilho que chama a API do Gemini a cada minuto. `Status das
+imagens` fica em `Na fila (geração pausada)` em vez de `Na fila`.
+
+Fluxo com o modo pausado ativo:
+
+1. Rode o passo 4 normalmente. A fila é criada, mas nada é gerado sozinho.
+2. Abra a aba `Fila de imagens`, copie o texto da coluna `Prompt` de cada
+   linha da pauta e gere a imagem em outra ferramenta.
+3. Suba a imagem gerada numa pasta do Drive e pegue o ID do arquivo (na
+   URL: `drive.google.com/file/d/ID_DO_ARQUIVO/view`).
+4. Na mesma linha da fila, cole esse ID na coluna `ID do arquivo` (coluna
+   M). Não precisa mexer em `Status` nem `Tentativas` — eles já ficam
+   `Pendente` com a fila pausada.
+5. Quando `Ferramentas > Retomar geração automática de imagens (Gemini)`
+   rodar de novo (ou depois de repor crédito), o gatilho volta a
+   processar a fila: qualquer linha com `ID do arquivo` preenchido pula o
+   Gemini e só insere a imagem no documento; linhas sem ID tentam gerar
+   pelo Gemini normalmente.
+
+Use `Ferramentas > Reparar fila de imagens` a qualquer momento para
+reabrir tarefas que ficaram `Falha`/`Erro temporário` (elas voltam para
+`Pendente`) — com o modo pausado ativo, isso não reinstala o gatilho; use
+"Retomar" para isso.
+
 ## Erros comuns
 
 **"Esta linha ainda não possui um link de pesquisa"** — o passo 1 não
