@@ -466,6 +466,8 @@ function gerarArtigoLinha_(aba, linha) {
     )
   };
 
+  topcValidarPilarDaPauta_(aba, pauta);
+
   if (!pauta.linkPesquisa) {
     throw new Error('Esta linha ainda não possui um link de pesquisa.');
   }
@@ -676,119 +678,6 @@ function gerarArtigoNoClaude_(pauta, pesquisa, plano) {
   }
 
   return conteudo;
-}
-
-function montarPromptArtigo_(pauta, pesquisa, plano) {
-  const tamanho = pauta.tipo === 'Pilar'
-    ? 'Entre 2.500 e 3.500 palavras'
-    : 'Entre 1.200 e 2.000 palavras';
-
-  // Com plano aprovado, ele é a fonte principal de estrutura e ângulo
-  // editorial — a pesquisa vira apoio para fatos e fontes, não a base
-  // da estrutura. Sem plano (pauta legada), o comportamento não muda:
-  // a pesquisa continua sendo a única fonte, como sempre foi.
-  const secaoPlano = plano
-    ? `
-PLANO SEO APROVADO (fonte principal — siga o título recomendado, a
-estrutura de H2/H3, a intenção de busca e os diferenciais definidos
-aqui; use a pesquisa abaixo só como apoio factual, não como estrutura)
-
-${plano}
-`
-    : '';
-
-  const instrucaoFonte = plano
-    ? 'Use o plano SEO acima como fonte principal do artigo. Se ele ' +
-      'recomendar um título ou slug diferente do informado abaixo, ' +
-      'use o do plano.'
-    : 'Use a pesquisa abaixo como fonte principal do artigo.';
-
-  return `
-Você é o redator-chefe do Top Comparativos, um site brasileiro de
-conteúdo informativo, reviews e comparativos.
-
-Escreva um artigo original, útil e editorialmente responsável.
-
-INFORMAÇÕES DA PAUTA
-
-Título inicial: ${pauta.titulo}
-Tipo: ${pauta.tipo}
-Palavra-chave principal: ${pauta.palavraChave}
-Intenção: ${pauta.intencao}
-Categoria: ${pauta.categoria}
-Slug: ${pauta.slug}
-Pilar relacionado: ${pauta.pilar || 'Não informado'}
-Tamanho esperado: ${tamanho}
-${secaoPlano}
-${instrucaoFonte}
-
-PESQUISA EDITORIAL
-
-${pesquisa}
-
-ESTRUTURA OBRIGATÓRIA
-
-TÍTULO SEO:
-[Crie um título com até 60 caracteres]
-
-META DESCRIPTION:
-[Crie uma descrição entre 140 e 160 caracteres]
-
-SLUG:
-${pauta.slug}
-
-PALAVRA-CHAVE PRINCIPAL:
-${pauta.palavraChave}
-
-PALAVRAS-CHAVE SECUNDÁRIAS:
-[Liste termos relacionados]
-
-# ${pauta.titulo}
-
-[Introdução direta, natural e útil]
-
-[Desenvolva o artigo usando H2 e H3]
-
-[IMAGEM: imagem-principal-${pauta.slug}.webp]
-
-[Inclua sugestões de imagens adicionais quando ajudarem o leitor]
-
-[LINK-INTERNO: slug-do-artigo-relacionado]
-
-## Perguntas frequentes
-
-[Inclua de 5 a 8 perguntas e respostas]
-
-## Conclusão
-
-[Conclusão útil e sem pressão comercial exagerada]
-
-AVISO EDITORIAL:
-Este conteúdo tem caráter informativo. Verifique sempre as orientações
-do fabricante antes de utilizar qualquer produto.
-
-FONTES PARA REVISÃO:
-[Liste as URLs presentes na pesquisa]
-
-REGRAS EDITORIAIS
-
-- Escreva em português do Brasil.
-- Não copie frases das fontes.
-- Não faça enchimento para atingir o tamanho.
-- Não invente produtos, preços, ASINs ou especificações.
-- Não afirme que testamos produtos fisicamente.
-- Não use frases como "testamos", "comprovamos" ou "nossa equipe usou".
-- Diferencie informações gerais de características específicas.
-- Não prometa resultados absolutos.
-- Não crie links de afiliado.
-- Não transforme opiniões de outros sites em fatos.
-- Evite excesso de palavras-chave.
-- Use parágrafos curtos e linguagem natural.
-- Use listas e tabelas somente quando facilitarem a leitura.
-- Não inclua preço, pois pode mudar.
-- Não publique automaticamente.
-- O texto será submetido a revisão humana.
-`;
 }
 
 function criarDocumentoArtigo_(pauta, conteudo) {

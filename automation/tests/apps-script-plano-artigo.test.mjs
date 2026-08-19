@@ -5,6 +5,8 @@ import vm from 'node:vm';
 
 const scripts = {
   codigo: new URL('../apps-script/Código.js', import.meta.url),
+  estruturas: new URL('../apps-script/EstruturasEditoriais.js', import.meta.url),
+  validacao: new URL('../apps-script/ValidacaoCluster.js', import.meta.url),
   planoSeo: new URL('../apps-script/PlanoSeo.js', import.meta.url),
   slugAuto: new URL('../apps-script/SlugAuto.js', import.meta.url)
 };
@@ -32,7 +34,7 @@ const pautaBase = {
 };
 
 test('montarPromptArtigo_ sem plano usa a pesquisa como fonte principal, igual antes', () => {
-  const api = load([scripts.codigo]);
+  const api = load([scripts.codigo, scripts.estruturas]);
 
   const prompt = api.montarPromptArtigo_(pautaBase, 'texto da pesquisa');
 
@@ -41,14 +43,14 @@ test('montarPromptArtigo_ sem plano usa a pesquisa como fonte principal, igual a
   assert.match(prompt, /texto da pesquisa/);
 });
 
-test('montarPromptArtigo_ com plano instrui a usá-lo como fonte principal e a pesquisa como apoio', () => {
-  const api = load([scripts.codigo]);
+test('montarPromptArtigo_ com plano instrui a usá-lo como fonte principal de ângulo e a pesquisa como apoio', () => {
+  const api = load([scripts.codigo, scripts.estruturas]);
 
   const prompt = api.montarPromptArtigo_(pautaBase, 'texto da pesquisa', 'texto do plano SEO');
 
   assert.match(prompt, /PLANO SEO APROVADO \(fonte principal/);
   assert.match(prompt, /texto do plano SEO/);
-  assert.match(prompt, /Use o plano SEO acima como fonte principal do artigo\./);
+  assert.match(prompt, /Use o plano SEO acima como fonte principal de ângulo e diferenciais do artigo\./);
   assert.match(prompt, /use a pesquisa abaixo só como apoio factual/);
   // A pesquisa continua presente, só não é mais a fonte primária.
   assert.match(prompt, /texto da pesquisa/);
@@ -79,7 +81,10 @@ function baseColunas(overrides = {}) {
   return {
     'ID': '1',
     'Título': 'Melhor sanduicheira 2026',
-    'Tipo': 'Comparativo',
+    // Tipo Pilar evita que topcValidarPilarDaPauta_ (ValidacaoCluster.js)
+    // exija localizar um pilar na aba: estes testes cobrem o fluxo de
+    // plano SEO / geração de artigo, não a validação de cluster.
+    'Tipo': 'Pilar',
     'Pilar relacionado': '',
     'Palavra-chave principal': 'sanduicheira',
     'Intenção': 'Comercial',
@@ -96,7 +101,7 @@ function baseColunas(overrides = {}) {
 }
 
 test('gerarArtigoLinha_ para com erro quando existe plano SEO não aprovado', () => {
-  const api = load([scripts.codigo, scripts.planoSeo, scripts.slugAuto]);
+  const api = load([scripts.codigo, scripts.estruturas, scripts.validacao, scripts.planoSeo, scripts.slugAuto]);
 
   const aba = abaFake(baseColunas({
     'Link do plano SEO': 'https://docs.google.com/document/d/plano123/edit',
@@ -112,7 +117,7 @@ test('gerarArtigoLinha_ para com erro quando existe plano SEO não aprovado', ()
 test('gerarArtigoLinha_ segue o fluxo legado quando não existe plano (Link do plano SEO vazio)', () => {
   const chamadasClaude = [];
 
-  const api = load([scripts.codigo, scripts.planoSeo, scripts.slugAuto], {
+  const api = load([scripts.codigo, scripts.estruturas, scripts.validacao, scripts.planoSeo, scripts.slugAuto], {
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ({ toast: () => {} }),
       flush: () => {}
@@ -162,7 +167,7 @@ test('gerarArtigoLinha_ lê o Doc do plano aprovado e passa como fonte pro Claud
   const chamadasClaude = [];
   const lidos = [];
 
-  const api = load([scripts.codigo, scripts.planoSeo, scripts.slugAuto], {
+  const api = load([scripts.codigo, scripts.estruturas, scripts.validacao, scripts.planoSeo, scripts.slugAuto], {
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ({ toast: () => {} }),
       flush: () => {}
