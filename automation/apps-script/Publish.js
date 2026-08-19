@@ -282,8 +282,15 @@ function publicarArtigoSiteSelecionado() {
     throw new Error('Selecione um artigo na aba "Pauta editorial".');
   }
 
+  return publicarArtigoSiteLinha_(aba, linha);
+}
+
+// Núcleo sem depender da célula ativa: usado pelo fluxo completo
+// automático, que roda em contexto de gatilho (sem seleção de célula).
+function publicarArtigoSiteLinha_(aba, linha) {
+  const planilha = SpreadsheetApp.getActiveSpreadsheet();
   const contexto = topcObterContextoPublicacao_(aba, linha);
-  const envelope = topcMontarEnvelopeSelecionado_();
+  const envelope = topcMontarEnvelopeLinha_(aba, linha);
   const midias = topcObterMidiasConcluidas_(linha, contexto.slug);
 
   topcValidarPrePublicacao_(contexto, envelope, midias);

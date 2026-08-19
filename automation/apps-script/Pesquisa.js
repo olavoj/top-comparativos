@@ -13,6 +13,18 @@ function pesquisarPautaSelecionada() {
     return;
   }
 
+  try {
+    pesquisarPautaLinha_(aba, linha);
+  } catch (erro) {
+    SpreadsheetApp.getUi().alert(
+      'Não foi possível concluir a pesquisa:\n\n' + erro.message
+    );
+  }
+}
+
+// Núcleo sem UI: usado pelo comando de menu e pelo fluxo completo
+// automático, que roda em contexto de gatilho (sem getUi()).
+function pesquisarPautaLinha_(aba, linha) {
   const colunas = obterColunas_(aba);
   validarColunas_(colunas, [
     'Título',
@@ -35,10 +47,7 @@ function pesquisarPautaSelecionada() {
   };
 
   if (!pauta.titulo || !pauta.palavraChave) {
-    SpreadsheetApp.getUi().alert(
-      'Preencha pelo menos Título e Palavra-chave principal.'
-    );
-    return;
+    throw new Error('Preencha pelo menos Título e Palavra-chave principal.');
   }
 
   const trava = LockService.getDocumentLock();
@@ -77,9 +86,13 @@ function pesquisarPautaSelecionada() {
         )
     );
 
-    SpreadsheetApp.getUi().alert(
-      'Pesquisa concluída!\n\nDocumento: ' + documento.getUrl()
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      'Pesquisa concluída: ' + documento.getUrl(),
+      'Top Comparativos',
+      8
     );
+
+    return documento;
   } catch (erro) {
     atualizarValor_(aba, linha, colunas, 'Status', 'Erro');
     atualizarValor_(
@@ -90,9 +103,7 @@ function pesquisarPautaSelecionada() {
       'Erro na pesquisa: ' + erro.message
     );
 
-    SpreadsheetApp.getUi().alert(
-      'Não foi possível concluir a pesquisa:\n\n' + erro.message
-    );
+    throw erro;
   } finally {
     if (travaAdquirida) {
       trava.releaseLock();

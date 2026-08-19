@@ -50,6 +50,27 @@ test('remove metadados de valor único e preserva conteúdo', () => {
   assert.deepEqual(plain(result.blocks), [{ type: 'image', mediaKey: 'capa.webp' }, { type: 'heading', level: 1, text: 'Guia' }, { type: 'paragraph', text: 'Conteúdo real.' }]);
 });
 
+test('remove variações da palavra-chave principal antes das secundárias (bug encha seu kindle)', () => {
+  const normalize = loadHelper();
+  const result = normalize({ title: 'Guia', excerpt: 'Revisão', sources: [], blocks: [
+    { type: 'paragraph', text: '=== CONTEÚDO PARA PUBLICAÇÃO ===' },
+    { type: 'paragraph', text: 'PALAVRA-CHAVE PRINCIPAL:' },
+    { type: 'paragraph', text: 'encha seu kindle 2026,' },
+    { type: 'paragraph', text: 'encha seu kindle 2026,' },
+    { type: 'paragraph', text: 'kindle,' },
+    { type: 'paragraph', text: 'amazon encha seu kindle,' },
+    { type: 'paragraph', text: 'kindle amazon,' },
+    { type: 'paragraph', text: 'kindle day,' },
+    { type: 'paragraph', text: 'amazon encha seu kindle 2026,' },
+    { type: 'paragraph', text: 'PALAVRAS-CHAVE SECUNDÁRIAS:' },
+    { type: 'paragraph', text: 'e-books grátis Amazon' },
+    { type: 'paragraph', text: 'promoção Kindle 2026' },
+    { type: 'heading', level: 1, text: 'Encha seu Kindle 2026' },
+    { type: 'paragraph', text: 'Conteúdo real do artigo.' },
+  ]});
+  assert.deepEqual(plain(result.blocks), [{ type: 'heading', level: 1, text: 'Encha seu Kindle 2026' }, { type: 'paragraph', text: 'Conteúdo real do artigo.' }]);
+});
+
 test('mantém comportamento legado sem marcador', () => {
   const normalize = loadHelper();
   const input = { title: 'Título legado', excerpt: 'Resumo legado', sources: [], blocks: [{ type: 'paragraph', text: 'Resumo legado' }] };

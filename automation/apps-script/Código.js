@@ -33,7 +33,69 @@ function topcAdicionarFerramentasMenu_(menu, ui) {
           'Reabrir falhas de lista selecionadas',
           'reabrirFalhasListItemSelecionadas'
         )
+        .addItem(
+          'Puxar dados do Search Console (últimas 3 semanas)',
+          'puxarDadosSearchConsoleUltimasSemanas'
+        )
+        .addSeparator()
+        .addItem(
+          'Pausar geração automática de imagens (Gemini)',
+          'pausarGeracaoAutomaticaImagens'
+        )
+        .addItem(
+          'Retomar geração automática de imagens (Gemini)',
+          'retomarGeracaoAutomaticaImagens'
+        )
     );
+}
+
+// Enquanto pausado, "4. Gerar imagens com Nano Banana" continua criando os
+// marcadores no documento e as linhas na Fila de imagens — com o prompt de
+// cada imagem já pronto na coluna correspondente — mas não instala o
+// gatilho que chama a API do Gemini. Serve para os dias sem crédito na
+// conta: o prompt fica disponível pra gerar a imagem manualmente em outro
+// lugar, sem a fila ficar tentando (e falhando) sozinha a cada minuto.
+function topcGeracaoImagensPausada_() {
+  return PropertiesService
+    .getScriptProperties()
+    .getProperty('IMAGENS_GERACAO_PAUSADA') === 'true';
+}
+
+function pausarGeracaoAutomaticaImagens() {
+  PropertiesService
+    .getScriptProperties()
+    .setProperty('IMAGENS_GERACAO_PAUSADA', 'true');
+
+  ScriptApp
+    .getProjectTriggers()
+    .filter(function(gatilho) {
+      return gatilho.getHandlerFunction() === 'processarFilaImagens';
+    })
+    .forEach(function(gatilho) {
+      ScriptApp.deleteTrigger(gatilho);
+    });
+
+  SpreadsheetApp.getUi().alert(
+    'Geração automática de imagens pausada. O passo 4 continua criando ' +
+    'os marcadores e os prompts na aba "Fila de imagens" (coluna Prompt), ' +
+    'mas não vai mais chamar o Gemini sozinho. Preencha manualmente a ' +
+    'coluna "ID do arquivo" com o ID do Drive de cada imagem gerada por ' +
+    'fora e use "Retomar geração automática de imagens" quando quiser que ' +
+    'o script volte a processar a fila.'
+  );
+}
+
+function retomarGeracaoAutomaticaImagens() {
+  PropertiesService
+    .getScriptProperties()
+    .deleteProperty('IMAGENS_GERACAO_PAUSADA');
+
+  instalarGatilhoImagens_();
+
+  SpreadsheetApp.getUi().alert(
+    'Geração automática de imagens retomada. Tarefas pendentes na fila ' +
+    'serão processadas a partir do próximo minuto.'
+  );
 }
 
 function onOpen() {
@@ -42,8 +104,21 @@ function onOpen() {
   const menu = ui
     .createMenu('Automação SEO')
     .addItem(
+      '▶ Rodar fluxo completo (1-7)',
+      'executarFluxoCompletoSelecionado'
+    )
+    .addSeparator()
+    .addItem(
       '1. Pesquisar pauta selecionada',
       'pesquisarPautaSelecionada'
+    )
+    .addItem(
+      '1b. Pesquisar (ampliada)',
+      'pesquisarPautaAmpliadaSelecionada'
+    )
+    .addItem(
+      '1c. Analisar SEO e gerar plano',
+      'analisarSeoSelecionado'
     )
     .addItem(
       '2. Gerar artigo com Claude',
@@ -334,6 +409,18 @@ function gerarArtigoSelecionado() {
     return;
   }
 
+  try {
+    gerarArtigoLinha_(aba, linha);
+  } catch (erro) {
+    SpreadsheetApp.getUi().alert(
+      'Não foi possível gerar o artigo:\n\n' + erro.message
+    );
+  }
+}
+
+// Núcleo sem UI: usado pelo comando de menu e pelo fluxo completo
+// automático, que roda em contexto de gatilho (sem getUi()).
+function gerarArtigoLinha_(aba, linha) {
   const colunas = obterColunas_(aba);
 
   validarColunas_(colunas, [
@@ -380,10 +467,22 @@ function gerarArtigoSelecionado() {
   };
 
   if (!pauta.linkPesquisa) {
-    SpreadsheetApp.getUi().alert(
-      'Esta linha ainda não possui um link de pesquisa.'
+    throw new Error('Esta linha ainda não possui um link de pesquisa.');
+  }
+
+  // Pautas sem plano SEO (coluna nunca preenchida) seguem o fluxo
+  // legado, só com a pesquisa. Pautas com plano exigem aprovação antes
+  // de gerar o artigo — e, quando aprovado, o plano vira a fonte
+  // principal do prompt, não só um gate de aprovação.
+  const linkPlano = obterValor_(aba, linha, colunas, 'Link do plano SEO');
+  const statusPlano = obterValor_(aba, linha, colunas, 'Status do plano');
+
+  if (linkPlano && statusPlano !== 'Aprovado') {
+    throw new Error(
+      'Existe um plano SEO para esta pauta, mas o status é "' +
+      (statusPlano || '(vazio)') + '", não "Aprovado". Aprove o plano ' +
+      '(coluna "Status do plano") antes de gerar o artigo.'
     );
-    return;
   }
 
   const trava = LockService.getDocumentLock();
@@ -404,7 +503,10 @@ function gerarArtigoSelecionado() {
     SpreadsheetApp.flush();
 
     const pesquisa = lerDocumentoGoogle_(pauta.linkPesquisa);
-    const artigo = gerarArtigoNoClaude_(pauta, pesquisa);
+    const plano = linkPlano && statusPlano === 'Aprovado'
+      ? lerDocumentoGoogle_(linkPlano)
+      : '';
+    const artigo = gerarArtigoNoClaude_(pauta, pesquisa, plano);
     const documento = criarDocumentoArtigo_(pauta, artigo);
 
     atualizarValor_(
@@ -437,10 +539,13 @@ function gerarArtigoSelecionado() {
         '. Revisão humana obrigatória antes da publicação.'
     );
 
-    SpreadsheetApp.getUi().alert(
-      'Artigo criado e enviado para revisão!\n\n' +
-      documento.getUrl()
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      'Artigo criado e enviado para revisão: ' + documento.getUrl(),
+      'Top Comparativos',
+      8
     );
+
+    return documento;
   } catch (erro) {
     atualizarValor_(aba, linha, colunas, 'Status', 'Erro');
 
@@ -452,9 +557,7 @@ function gerarArtigoSelecionado() {
       'Erro ao gerar artigo: ' + erro.message
     );
 
-    SpreadsheetApp.getUi().alert(
-      'Não foi possível gerar o artigo:\n\n' + erro.message
-    );
+    throw erro;
   } finally {
     if (travaAdquirida) {
       trava.releaseLock();
@@ -497,7 +600,7 @@ function extrairIdGoogle_(url) {
   return null;
 }
 
-function gerarArtigoNoClaude_(pauta, pesquisa) {
+function gerarArtigoNoClaude_(pauta, pesquisa, plano) {
   const apiKey = PropertiesService
     .getScriptProperties()
     .getProperty('ANTHROPIC_API_KEY');
@@ -508,7 +611,7 @@ function gerarArtigoNoClaude_(pauta, pesquisa) {
     );
   }
 
-  const prompt = montarPromptArtigo_(pauta, pesquisa);
+  const prompt = montarPromptArtigo_(pauta, pesquisa, plano);
 
   const payload = {
     model: 'claude-sonnet-5',
@@ -575,10 +678,30 @@ function gerarArtigoNoClaude_(pauta, pesquisa) {
   return conteudo;
 }
 
-function montarPromptArtigo_(pauta, pesquisa) {
+function montarPromptArtigo_(pauta, pesquisa, plano) {
   const tamanho = pauta.tipo === 'Pilar'
     ? 'Entre 2.500 e 3.500 palavras'
     : 'Entre 1.200 e 2.000 palavras';
+
+  // Com plano aprovado, ele é a fonte principal de estrutura e ângulo
+  // editorial — a pesquisa vira apoio para fatos e fontes, não a base
+  // da estrutura. Sem plano (pauta legada), o comportamento não muda:
+  // a pesquisa continua sendo a única fonte, como sempre foi.
+  const secaoPlano = plano
+    ? `
+PLANO SEO APROVADO (fonte principal — siga o título recomendado, a
+estrutura de H2/H3, a intenção de busca e os diferenciais definidos
+aqui; use a pesquisa abaixo só como apoio factual, não como estrutura)
+
+${plano}
+`
+    : '';
+
+  const instrucaoFonte = plano
+    ? 'Use o plano SEO acima como fonte principal do artigo. Se ele ' +
+      'recomendar um título ou slug diferente do informado abaixo, ' +
+      'use o do plano.'
+    : 'Use a pesquisa abaixo como fonte principal do artigo.';
 
   return `
 Você é o redator-chefe do Top Comparativos, um site brasileiro de
@@ -596,6 +719,8 @@ Categoria: ${pauta.categoria}
 Slug: ${pauta.slug}
 Pilar relacionado: ${pauta.pilar || 'Não informado'}
 Tamanho esperado: ${tamanho}
+${secaoPlano}
+${instrucaoFonte}
 
 PESQUISA EDITORIAL
 
@@ -751,6 +876,18 @@ function revisarArtigoSelecionado() {
     return;
   }
 
+  try {
+    revisarArtigoLinha_(aba, linha);
+  } catch (erro) {
+    SpreadsheetApp.getUi().alert(
+      'Não foi possível revisar o artigo:\n\n' + erro.message
+    );
+  }
+}
+
+// Núcleo sem UI: usado pelo comando de menu e pelo fluxo completo
+// automático, que roda em contexto de gatilho (sem getUi()).
+function revisarArtigoLinha_(aba, linha) {
   const colunas = obterColunas_(aba);
 
   validarColunas_(colunas, [
@@ -800,17 +937,11 @@ function revisarArtigoSelecionado() {
   };
 
   if (!pauta.linkPesquisa) {
-    SpreadsheetApp.getUi().alert(
-      'A linha selecionada não possui Link da pesquisa.'
-    );
-    return;
+    throw new Error('A linha selecionada não possui Link da pesquisa.');
   }
 
   if (!pauta.linkArtigo) {
-    SpreadsheetApp.getUi().alert(
-      'A linha selecionada não possui Link do artigo.'
-    );
-    return;
+    throw new Error('A linha selecionada não possui Link do artigo.');
   }
 
   const trava = LockService.getDocumentLock();
@@ -874,10 +1005,13 @@ function revisarArtigoSelecionado() {
         '. Aprovação humana obrigatória antes da publicação.'
     );
 
-    SpreadsheetApp.getUi().alert(
-      'Revisão editorial concluída!\n\n' +
-      documento.getUrl()
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      'Revisão editorial concluída: ' + documento.getUrl(),
+      'Top Comparativos',
+      8
     );
+
+    return documento;
   } catch (erro) {
     atualizarValor_(aba, linha, colunas, 'Status', 'Erro');
 
@@ -889,10 +1023,7 @@ function revisarArtigoSelecionado() {
       'Erro na revisão: ' + erro.message
     );
 
-    SpreadsheetApp.getUi().alert(
-      'Não foi possível revisar o artigo:\n\n' +
-      erro.message
-    );
+    throw erro;
   } finally {
     if (travaAdquirida) {
       trava.releaseLock();
@@ -1041,6 +1172,32 @@ REVISÃO OBRIGATÓRIA
 - Não use Markdown para negrito.
 - Não utilize dois asteriscos em nenhuma parte do texto.
 - Não coloque a resposta dentro de bloco de código.
+- Não use travessão (—) em nenhuma parte do texto. Reescreva a frase com
+  vírgula, ponto ou conectivo comum em vez de usar " — ".
+
+SINAIS DE TEXTO GERADO POR IA: reescreva qualquer trecho que caia nestes
+padrões, mesmo que a informação em si esteja correta.
+
+- Excesso de conectivos formais como "além disso", "por conseguinte",
+  "em suma", "vale ressaltar", "nesse sentido". Use no máximo um por
+  artigo, e só se soar natural.
+- Frases todas com o mesmo comprimento e ritmo. Varie frases curtas e
+  longas como um redator humano faria.
+- Tom neutro e genérico sem nenhum ponto de vista. Dê uma opinião
+  editorial concreta quando fizer sentido, apoiada na pesquisa.
+- Conclusão em fórmula genérica ("concluindo", "diante do exposto", "em
+  resumo") que só repete o que já foi dito. Feche o artigo com algo que
+  agregue, não com um resumo disfarçado.
+- Profundidade aparente sem dado concreto: evite parágrafos que soam
+  analíticos mas não citam nenhum número, exemplo ou fonte específica da
+  pesquisa.
+- Estruturas do tipo "não é X, é Y" e listas de exatamente três itens
+  paralelos usadas em excesso. Varie a forma de apresentar comparações.
+- Perfeição artificial: gramática impecável ao ponto de soar robótico.
+  Não é para inserir erros, mas para preferir frases mais diretas e
+  menos always-polished quando isso soar mais natural.
+- Nunca invente dado, estatística ou referência que não esteja na
+  pesquisa fornecida. Se um número não está na pesquisa, não afirme.
 
 NÃO É PERMITIDO
 
@@ -1127,6 +1284,8 @@ function limparRespostaClaude_(texto) {
     .replace(/```\s*$/i, '')
     .replace(/\*\*/g, '')
     .replace(/characterísticos/gi, 'característicos')
+    .replace(/[ \t]*—[ \t]*/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
     .trim();
 
   const obrigatorios = [
@@ -1269,6 +1428,18 @@ function enfileirarImagensSelecionadas() {
     return;
   }
 
+  try {
+    enfileirarImagensLinha_(aba, linha);
+  } catch (erro) {
+    SpreadsheetApp.getUi().alert(
+      'Não foi possível preparar as imagens:\n\n' + erro.message
+    );
+  }
+}
+
+// Núcleo sem UI: usado pelo comando de menu e pelo fluxo completo
+// automático, que roda em contexto de gatilho (sem getUi()).
+function enfileirarImagensLinha_(aba, linha) {
   const colunas = obterColunas_(aba);
 
   validarColunas_(colunas, [
@@ -1310,17 +1481,11 @@ function enfileirarImagensSelecionadas() {
   };
 
   if (!pauta.slug) {
-    SpreadsheetApp.getUi().alert(
-      'A pauta não possui slug.'
-    );
-    return;
+    throw new Error('A pauta não possui slug.');
   }
 
   if (!pauta.linkRevisao) {
-    SpreadsheetApp.getUi().alert(
-      'A pauta ainda não possui Link da revisão.'
-    );
-    return;
+    throw new Error('A pauta ainda não possui Link da revisão.');
   }
 
   const apiKey = PropertiesService
@@ -1328,10 +1493,7 @@ function enfileirarImagensSelecionadas() {
     .getProperty('GEMINI_API_KEY');
 
   if (!apiKey) {
-    SpreadsheetApp.getUi().alert(
-      'A propriedade GEMINI_API_KEY não foi encontrada.'
-    );
-    return;
+    throw new Error('A propriedade GEMINI_API_KEY não foi encontrada.');
   }
 
   try {
@@ -1363,6 +1525,18 @@ function enfileirarImagensSelecionadas() {
 
     const documentoFinal = criarDocumentoFinal_(pauta);
 
+    // Grava o link assim que o Doc final existe, antes de qualquer etapa
+    // que possa falhar depois (instalar gatilho, gravar fila) — sem isso,
+    // uma falha tardia deixa "Link final" vazio mesmo com o Doc já criado
+    // e a fila já em andamento, exigindo recuperação manual.
+    atualizarValor_(
+      aba,
+      linha,
+      colunas,
+      'Link final',
+      documentoFinal.getUrl()
+    );
+
     const marcadores = prepararMarcadoresImagens_(
       documentoFinal.getId(),
       pauta,
@@ -1377,22 +1551,18 @@ function enfileirarImagensSelecionadas() {
       marcadores
     );
 
-    instalarGatilhoImagens_();
+    const pausado = topcGeracaoImagensPausada_();
 
-    atualizarValor_(
-      aba,
-      linha,
-      colunas,
-      'Link final',
-      documentoFinal.getUrl()
-    );
+    if (!pausado) {
+      instalarGatilhoImagens_();
+    }
 
     atualizarValor_(
       aba,
       linha,
       colunas,
       'Status das imagens',
-      'Na fila'
+      pausado ? 'Na fila (geração pausada)' : 'Na fila'
     );
 
     const novaObservacao =
@@ -1404,7 +1574,10 @@ function enfileirarImagensSelecionadas() {
       ) +
       '. Total: ' +
       marcadores.length +
-      ' imagens.';
+      ' imagens.' +
+      (pausado
+        ? ' Geração automática pausada — prompts prontos na aba "Fila de imagens".'
+        : '');
 
     atualizarValor_(
       aba,
@@ -1416,12 +1589,16 @@ function enfileirarImagensSelecionadas() {
         : novaObservacao
     );
 
-    SpreadsheetApp.getUi().alert(
+    SpreadsheetApp.getActiveSpreadsheet().toast(
       'Fila preparada com ' +
       marcadores.length +
-      ' imagens.\n\nDocumento final:\n' +
-      documentoFinal.getUrl()
+      ' imagens. Documento final: ' +
+      documentoFinal.getUrl(),
+      'Top Comparativos',
+      8
     );
+
+    return documentoFinal;
   } catch (erro) {
     atualizarValor_(
       aba,
@@ -1439,10 +1616,7 @@ function enfileirarImagensSelecionadas() {
       'Erro ao preparar imagens: ' + erro.message
     );
 
-    SpreadsheetApp.getUi().alert(
-      'Não foi possível preparar as imagens:\n\n' +
-      erro.message
-    );
+    throw erro;
   }
 }
 
@@ -1635,6 +1809,14 @@ function ehNomeDeCapa_(nome) {
   return /capa|principal|hero/i.test(String(nome || ''));
 }
 
+// O Claude às vezes ecoa o marcador de exemplo do prompt ("[IMAGEM: ...]")
+// como texto literal em vez de um nome de arquivo real. Um marcador assim
+// nunca deve entrar na fila: gera uma imagem chamada "..." que o envio ao
+// site rejeita mais tarde (MediaQueue.js valida o nome do arquivo).
+function topcNomeDeImagemValido_(nome) {
+  return /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z0-9]+$/.test(String(nome || '').trim());
+}
+
 function extrairMarcadoresImagens_(texto) {
   const regex = /\[IMAGEM:\s*([^\]]+)\]/gi;
   const resultados = [];
@@ -1645,7 +1827,7 @@ function extrairMarcadoresImagens_(texto) {
     const nome = correspondencia[1].trim();
     const marcador = correspondencia[0];
 
-    if (!encontrados.has(marcador)) {
+    if (!encontrados.has(marcador) && topcNomeDeImagemValido_(nome)) {
       encontrados.add(marcador);
 
       resultados.push({
@@ -2103,7 +2285,8 @@ function gerarImagemGemini_(prompt, proporcao) {
     parteImagem = partes.find(function (parte) {
       return (
         parte.inlineData &&
-        parte.inlineData.data
+        parte.inlineData.data &&
+        /^image\//i.test(parte.inlineData.mimeType || '')
       );
     });
 
@@ -2258,6 +2441,276 @@ function finalizarLoteSePronto_(
       ? observacaoAtual + '\n' + resumo
       : resumo
   );
+
+  topcContinuarFluxoAutomaticoSeAtivo_(
+    slug,
+    abaPauta,
+    linhaPauta,
+    statusFinal
+  );
+}
+
+// Propriedade que sinaliza que a linha deve continuar sozinha até a
+// publicação assim que a fila de imagens (etapa 4) terminar. Fica em
+// Script Properties porque o gatilho de tempo não carrega estado entre
+// execuções de outra forma.
+function topcChaveFluxoAutomatico_(slug) {
+  return 'AUTO_FLUXO_' + slug;
+}
+
+function topcMarcarFluxoAutomatico_(slug) {
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(topcChaveFluxoAutomatico_(slug), 'true');
+}
+
+function topcContinuarFluxoAutomaticoSeAtivo_(
+  slug,
+  abaPauta,
+  linhaPauta,
+  statusImagens
+) {
+  const propriedades = PropertiesService.getScriptProperties();
+  const chave = topcChaveFluxoAutomatico_(slug);
+
+  if (propriedades.getProperty(chave) !== 'true') {
+    return;
+  }
+
+  propriedades.deleteProperty(chave);
+
+  if (statusImagens !== 'Concluído') {
+    const colunas = obterColunas_(abaPauta);
+    const observacaoAtual = obterValor_(
+      abaPauta,
+      linhaPauta,
+      colunas,
+      'Observações'
+    );
+
+    atualizarValor_(
+      abaPauta,
+      linhaPauta,
+      colunas,
+      'Observações',
+      (observacaoAtual ? observacaoAtual + '\n' : '') +
+      'Fluxo automático interrompido: imagens terminaram com ' +
+      'pendências. Repare a fila e envie ao site manualmente ' +
+      '(passos 5 a 7).'
+    );
+
+    return;
+  }
+
+  try {
+    enviarRascunhoSiteLinha_(abaPauta, linhaPauta);
+    enviarImagensSiteLinha_(abaPauta, linhaPauta);
+    publicarArtigoSiteLinha_(abaPauta, linhaPauta);
+
+    const colunas = obterColunas_(abaPauta);
+    const observacaoAtual = obterValor_(
+      abaPauta,
+      linhaPauta,
+      colunas,
+      'Observações'
+    );
+
+    atualizarValor_(
+      abaPauta,
+      linhaPauta,
+      colunas,
+      'Observações',
+      (observacaoAtual ? observacaoAtual + '\n' : '') +
+      'Fluxo automático concluiu a publicação em ' +
+      Utilities.formatDate(
+        new Date(),
+        Session.getScriptTimeZone(),
+        'dd/MM/yyyy HH:mm'
+      ) +
+      '.'
+    );
+  } catch (erro) {
+    const colunas = obterColunas_(abaPauta);
+    const observacaoAtual = obterValor_(
+      abaPauta,
+      linhaPauta,
+      colunas,
+      'Observações'
+    );
+
+    atualizarValor_(
+      abaPauta,
+      linhaPauta,
+      colunas,
+      'Status',
+      'Erro'
+    );
+
+    atualizarValor_(
+      abaPauta,
+      linhaPauta,
+      colunas,
+      'Observações',
+      (observacaoAtual ? observacaoAtual + '\n' : '') +
+      'Fluxo automático parou antes da publicação: ' +
+      erro.message
+    );
+  }
+}
+
+// Comando "0. Rodar fluxo completo (1-7)". Roda pesquisa, artigo e
+// revisão na hora, prepara a fila de imagens e marca a linha para
+// terminar sozinha (envio ao site + publicação) assim que a fila
+// acabar, via topcContinuarFluxoAutomaticoSeAtivo_.
+function executarFluxoCompletoSelecionado() {
+  const planilha = SpreadsheetApp.getActiveSpreadsheet();
+  const aba = planilha.getActiveSheet();
+  const linha = aba.getActiveCell().getRow();
+
+  if (aba.getName() !== 'Pauta editorial' || linha <= 1) {
+    SpreadsheetApp.getUi().alert(
+      'Selecione uma linha de artigo na aba "Pauta editorial".'
+    );
+    return;
+  }
+
+  const propriedades = PropertiesService.getScriptProperties();
+  const linhaEmAndamento = propriedades.getProperty('AUTO_FLUXO_LINHA');
+
+  if (linhaEmAndamento && Number(linhaEmAndamento) !== linha) {
+    SpreadsheetApp.getUi().alert(
+      'Já existe um fluxo automático em andamento na linha ' +
+      linhaEmAndamento +
+      '. Aguarde terminar antes de iniciar outro.'
+    );
+    return;
+  }
+
+  propriedades.setProperty('AUTO_FLUXO_LINHA', String(linha));
+
+  SpreadsheetApp.getUi().alert(
+    'Fluxo iniciado! Cada etapa roda em segundo plano, uma de cada vez, ' +
+    'para não esbarrar no limite de execução do Google. Não precisa ' +
+    'manter a planilha aberta; acompanhe pela coluna Status/Observações.'
+  );
+
+  avancarFluxoCompletoAutomatico();
+}
+
+// Roda só a próxima etapa pendente do fluxo completo e reagenda a
+// seguinte via gatilho, em vez de rodar pesquisa + artigo + revisão numa
+// única execução: cada chamada ao Perplexity/Claude pode levar bastante
+// tempo sozinha, e empilhar as três estourava os 6 minutos de execução
+// do Apps Script, matando o fluxo antes mesmo de a fila de imagens ser
+// criada (nenhuma imagem gerada, nenhuma pendência visível na planilha).
+function avancarFluxoCompletoAutomatico() {
+  topcRemoverGatilhoFluxoCompleto_();
+
+  const propriedades = PropertiesService.getScriptProperties();
+  const linhaTexto = propriedades.getProperty('AUTO_FLUXO_LINHA');
+
+  if (!linhaTexto) {
+    return;
+  }
+
+  const linha = Number(linhaTexto);
+  const aba = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName('Pauta editorial');
+
+  if (!aba) {
+    propriedades.deleteProperty('AUTO_FLUXO_LINHA');
+    return;
+  }
+
+  try {
+    const colunas = obterColunas_(aba);
+
+    if (!obterValor_(aba, linha, colunas, 'Link da pesquisa')) {
+      pesquisarPautaLinha_(aba, linha);
+      topcAgendarProximaEtapaFluxoCompleto_();
+      return;
+    }
+
+    // gerarArtigoLinha_ checa sozinha se existe um plano SEO não
+    // aprovado para a linha e para com erro nesse caso — não precisa
+    // duplicar a checagem aqui.
+    if (!obterValor_(aba, linha, colunas, 'Link do artigo')) {
+      gerarArtigoLinha_(aba, linha);
+      topcAgendarProximaEtapaFluxoCompleto_();
+      return;
+    }
+
+    if (!obterValor_(aba, linha, colunas, 'Link da revisão')) {
+      revisarArtigoLinha_(aba, linha);
+      topcAgendarProximaEtapaFluxoCompleto_();
+      return;
+    }
+
+    const slug = obterValor_(aba, linha, colunas, 'Slug');
+
+    if (
+      obterValor_(aba, linha, colunas, 'Status das imagens') !==
+      'Concluído'
+    ) {
+      enfileirarImagensLinha_(aba, linha);
+      topcMarcarFluxoAutomatico_(slug);
+      propriedades.deleteProperty('AUTO_FLUXO_LINHA');
+
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        'Pesquisa, artigo e revisão prontos. Imagens na fila: quando ' +
+        'terminarem, o envio ao site e a publicação acontecem sozinhos.',
+        'Top Comparativos',
+        8
+      );
+
+      return;
+    }
+
+    enviarRascunhoSiteLinha_(aba, linha);
+    enviarImagensSiteLinha_(aba, linha);
+    publicarArtigoSiteLinha_(aba, linha);
+
+    propriedades.deleteProperty('AUTO_FLUXO_LINHA');
+
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      'Fluxo completo! Artigo publicado no site.',
+      'Top Comparativos',
+      8
+    );
+  } catch (erro) {
+    propriedades.deleteProperty('AUTO_FLUXO_LINHA');
+
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      'O fluxo completo parou: ' + erro.message,
+      'Top Comparativos',
+      8
+    );
+  }
+}
+
+function topcAgendarProximaEtapaFluxoCompleto_() {
+  topcRemoverGatilhoFluxoCompleto_();
+
+  ScriptApp
+    .newTrigger('avancarFluxoCompletoAutomatico')
+    .timeBased()
+    .after(1000)
+    .create();
+}
+
+function topcRemoverGatilhoFluxoCompleto_() {
+  ScriptApp
+    .getProjectTriggers()
+    .filter(function (gatilho) {
+      return (
+        gatilho.getHandlerFunction() ===
+        'avancarFluxoCompletoAutomatico'
+      );
+    })
+    .forEach(function (gatilho) {
+      ScriptApp.deleteTrigger(gatilho);
+    });
 }
 
 function removerGatilhoSeFilaVazia_() {
@@ -2339,12 +2792,19 @@ function repararFilaImagensAtual() {
     }
   });
 
-  instalarGatilhoImagens_();
+  const pausado = topcGeracaoImagensPausada_();
+
+  if (!pausado) {
+    instalarGatilhoImagens_();
+  }
 
   SpreadsheetApp.getUi().alert(
     reabertas +
-    ' tarefa(s) reaberta(s). O processamento será retomado ' +
-    'automaticamente em até um minuto.'
+    ' tarefa(s) reaberta(s).' +
+    (pausado
+      ? ' Geração automática está pausada — use "Retomar geração ' +
+        'automática de imagens (Gemini)" para processar a fila.'
+      : ' O processamento será retomado automaticamente em até um minuto.')
   );
 }
 const TOPC_SITE_AUTOMATION = {
@@ -2515,6 +2975,12 @@ function topcMontarEnvelopeSelecionado_() {
     throw new Error('Selecione uma linha de artigo.');
   }
 
+  return topcMontarEnvelopeLinha_(aba, linha);
+}
+
+// Núcleo sem depender da célula ativa: usado pelo fluxo completo
+// automático, que roda em contexto de gatilho (sem seleção de célula).
+function topcMontarEnvelopeLinha_(aba, linha) {
   const ultimaColuna = aba.getLastColumn();
 
   const cabecalhos = aba
@@ -3022,6 +3488,12 @@ function enviarRascunhoSiteSelecionado() {
     throw new Error('Selecione um artigo na aba "Pauta editorial".');
   }
 
+  return enviarRascunhoSiteLinha_(aba, linha);
+}
+
+// Núcleo sem depender da célula ativa: usado pelo fluxo completo
+// automático, que roda em contexto de gatilho (sem seleção de célula).
+function enviarRascunhoSiteLinha_(aba, linha) {
   const headers = aba
     .getRange(1, 1, 1, aba.getLastColumn())
     .getDisplayValues()[0];
@@ -3044,7 +3516,7 @@ function enviarRascunhoSiteSelecionado() {
 
   const sourceKey = 'pauta-' + id;
 
-  const envelope = topcMontarEnvelopeSelecionado_();
+  const envelope = topcMontarEnvelopeLinha_(aba, linha);
   const body = JSON.stringify(envelope);
 
   Logger.log(

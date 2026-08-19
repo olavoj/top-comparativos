@@ -303,7 +303,7 @@ test('publica automaticamente pela rota HMAC sem abrir confirmação', () => {
       getActiveSpreadsheet: () => spreadsheet,
       getUi: () => { throw new Error('não deve abrir confirmação'); }
     },
-    topcMontarEnvelopeSelecionado_: () => structuredClone(validEnvelope),
+    topcMontarEnvelopeLinha_: () => structuredClone(validEnvelope),
     topcObterMidiasConcluidas_: () => [{ mediaKey: 'capa.webp' }],
     topcEnviarAssinado_: (path, sourceKey, body, contentType) => {
       request = { path, sourceKey, body, contentType };
