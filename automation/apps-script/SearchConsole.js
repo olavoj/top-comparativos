@@ -7,7 +7,7 @@
 // declarado em appsscript.json.
 
 const SEARCH_CONSOLE_CONFIG = {
-  SITE_URL: '', // ex.: 'https://www.topcomparativos.com/' ou 'sc-domain:topcomparativos.com'
+  SITE_URL: 'https://comparativobr.com.br/', // ex.: 'https://www.topcomparativos.com/' ou 'sc-domain:topcomparativos.com'
   SEMANAS: 3,
   DIAS_DE_ATRASO: 3, // o GSC costuma levar 2-3 dias para consolidar os dados mais recentes
   DIMENSOES: ['date', 'query', 'page'],
