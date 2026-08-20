@@ -33,9 +33,30 @@ function topcEnviarBytesAssinados_(path, sourceKey, bytes, contentType, mediaHea
   return UrlFetchApp.fetch(TOPC_SITE_AUTOMATION.BASE_URL + path, { method: 'post', contentType, payload: bytes, headers, muteHttpExceptions: true });
 }
 
+const TOPC_ERROS_UPLOAD_MIDIA = {
+  media_article_not_found:
+    'O site ainda não tem um rascunho para este artigo (ou ele foi ' +
+    'removido/recriado do lado do site). Rode "5. Enviar rascunho ao ' +
+    'site" antes de "6. Enviar imagens ao site".'
+};
+
+function topcExplicarErroUploadMidia_(texto) {
+  let codigo = '';
+  try {
+    codigo = String(JSON.parse(String(texto || '')).error || '').trim();
+  } catch (erro) {
+    codigo = '';
+  }
+  return TOPC_ERROS_UPLOAD_MIDIA[codigo] || '';
+}
+
 function topcValidarRespostaUpload_(codigo, mediaKey, texto) {
   if (codigo === 200 || codigo === 201) return;
-  throw new Error('Falha ao enviar ' + mediaKey + '. HTTP ' + codigo + ': ' + String(texto || '').substring(0, 500));
+  const explicacao = topcExplicarErroUploadMidia_(texto);
+  throw new Error(
+    'Falha ao enviar ' + mediaKey + '. HTTP ' + codigo + ': ' + String(texto || '').substring(0, 500) +
+    (explicacao ? '\n\n' + explicacao : '')
+  );
 }
 
 function topcEnviarImagemSite_(sourceKey, media, referencedMediaKeys) {

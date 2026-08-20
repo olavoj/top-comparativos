@@ -75,6 +75,14 @@ test('aceita somente HTTP 200 e 201 no upload', () => {
   assert.throws(() => api.topcValidarRespostaUpload_(400, 'foto.webp', 'x'.repeat(800)), error => error.message.includes('HTTP 400') && error.message.length < 600);
 });
 
+test('explica media_article_not_found com a ordem correta dos passos', () => {
+  const api = loadScripts([corePath, uploadPath]);
+  assert.throws(
+    () => api.topcValidarRespostaUpload_(404, 'foto.webp', JSON.stringify({ error: 'media_article_not_found' })),
+    error => error.message.includes('HTTP 404') && /5\. Enviar rascunho ao site/.test(error.message)
+  );
+});
+
 test('registra o comando separado de upload no menu', () => {
   const api = loadScripts([corePath, uploadPath]); const calls = [];
   const menu = { addSeparator() { calls.push(['separator']); return this; }, addItem(label, handler) { calls.push([label, handler]); return this; } };
