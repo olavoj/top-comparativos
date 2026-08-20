@@ -11,8 +11,29 @@ const scripts = {
   pesquisa: new URL('../apps-script/Pesquisa.js', import.meta.url),
   pesquisaAmpliada: new URL('../apps-script/PesquisaAmpliada.js', import.meta.url),
   analiseSeo: new URL('../apps-script/AnaliseSeo.js', import.meta.url),
-  planoSeo: new URL('../apps-script/PlanoSeo.js', import.meta.url)
+  planoSeo: new URL('../apps-script/PlanoSeo.js', import.meta.url),
+  clusterSeo: new URL('../apps-script/ClusterSeo.js', import.meta.url)
 };
+
+// onOpen garante a existência da aba "Clusters SEO" (mesmo padrão de
+// obterOuCriarAbaFila_ para "Fila de imagens"); precisa de uma planilha
+// fake mínima para isso, mesmo nos testes que só olham a estrutura do
+// menu.
+function planilhaFakeParaOnOpen() {
+  const abas = {};
+
+  return {
+    getSheetByName: (nome) => abas[nome] || null,
+    insertSheet: (nome) => {
+      const aba = {
+        getRange: () => ({ setValues: () => {} }),
+        setFrozenRows: () => {}
+      };
+      abas[nome] = aba;
+      return aba;
+    }
+  };
+}
 
 function load(paths, extras = {}) {
   const context = vm.createContext({ ...extras });
@@ -60,8 +81,11 @@ test('o menu expõe as sete etapas do fluxo, do rascunho à publicação', () =>
     }
   };
 
-  const api = load([scripts.codigo, scripts.upload, scripts.publish], {
-    SpreadsheetApp: { getUi: () => ui }
+  const api = load([scripts.codigo, scripts.upload, scripts.publish, scripts.clusterSeo], {
+    SpreadsheetApp: {
+      getUi: () => ui,
+      getActiveSpreadsheet: () => planilhaFakeParaOnOpen()
+    }
   });
 
   api.onOpen();
@@ -70,6 +94,8 @@ test('o menu expõe as sete etapas do fluxo, do rascunho à publicação', () =>
 
   assert.deepEqual(itens, [
     ['▶ Rodar fluxo completo (1-7)', 'executarFluxoCompletoSelecionado'],
+    ['0. Gerar cluster SEO', 'gerarClusterSeoSelecionado'],
+    ['0b. Criar pautas do cluster aprovado', 'criarPautasDoClusterSelecionado'],
     ['1. Pesquisar pauta selecionada', 'pesquisarPautaSelecionada'],
     ['1b. Pesquisar (ampliada)', 'pesquisarPautaAmpliadaSelecionada'],
     ['1c. Analisar SEO e gerar plano', 'analisarSeoSelecionado'],
@@ -95,8 +121,11 @@ test('o menu de ferramentas oferece o reparo da fila de imagens', () => {
     }
   };
 
-  const api = load([scripts.codigo, scripts.upload, scripts.publish], {
-    SpreadsheetApp: { getUi: () => ui }
+  const api = load([scripts.codigo, scripts.upload, scripts.publish, scripts.clusterSeo], {
+    SpreadsheetApp: {
+      getUi: () => ui,
+      getActiveSpreadsheet: () => planilhaFakeParaOnOpen()
+    }
   });
 
   api.onOpen();
