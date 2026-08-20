@@ -1,7 +1,8 @@
 # Fluxo da planilha editorial
 
 Menu `Automação SEO`, sempre com uma célula da linha da pauta selecionada
-na aba `Pauta editorial`.
+na aba `Pauta editorial` — exceto os comandos `0` e `0b`, que rodam na
+aba `Clusters SEO` (ver "Cluster SEO (opcional)" abaixo).
 
 ## Rodar o fluxo inteiro com um clique
 
@@ -58,6 +59,37 @@ com "A pauta não possui Versão no site".
 
 Depois de qualquer correção no documento final, refaça 5, 6 e 7 nessa
 ordem: o passo 7 publica exatamente a versão registrada no passo 5.
+
+## Cluster SEO (opcional)
+
+Ponto de partida antes de qualquer pauta existir: uma palavra-chave-semente
+vira um plano de cluster (1 página pilar + 3 a 25 páginas satélites), que
+depois cria as linhas correspondentes na aba `Pauta editorial` de uma vez.
+
+Na aba `Clusters SEO` (criada automaticamente ao abrir a planilha),
+preencha `Palavra-chave semente` e `Link da pesquisa` (um Doc com pesquisa
+sobre o tema, no mesmo formato usado pelos passos `1`/`1b`) numa linha nova
+e rode `0. Gerar cluster SEO`. O Claude retorna a arquitetura do cluster —
+pilar, satélites, mapa de palavras-chave por página, análise da SERP,
+regras de linkagem interna, diferenciais, fontes e riscos — validada campo
+a campo com tool use forçado, igual ao plano SEO por artigo. Um Doc
+"Cluster SEO — &lt;semente&gt;" é criado e `Status do cluster` vira
+`Cluster gerado`.
+
+A aprovação é manual: revise o Doc e edite `Status do cluster` para
+`Aprovado`. Rodar `0` de novo sobre um cluster já aprovado gera um cluster
+novo e limpa a aprovação anterior, mesma regra do plano SEO por artigo.
+
+Com o cluster aprovado, rode `0b. Criar pautas do cluster aprovado`: cria
+uma linha em `Pauta editorial` por página do cluster (`Tipo`, `Pilar
+relacionado`, `Palavra-chave principal`, `Intenção`, `Categoria` e `Slug`
+já preenchidos), pulando qualquer slug que já exista na aba — pode rodar
+o comando mais de uma vez sem duplicar pautas. Cada linha criada segue o
+fluxo normal a partir do passo `1`.
+
+Ficam de fora do plano de cluster o calendário de publicação e as metas de
+tráfego/afiliado: são úteis como leitura humana num plano manual, mas
+nenhuma etapa da automação agiria sobre eles.
 
 ## Plano SEO (opcional)
 

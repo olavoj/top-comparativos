@@ -101,11 +101,22 @@ function retomarGeracaoAutomaticaImagens() {
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
 
+  obterOuCriarAbaClustersSeo_();
+
   const menu = ui
     .createMenu('Automação SEO')
     .addItem(
       '▶ Rodar fluxo completo (1-7)',
       'executarFluxoCompletoSelecionado'
+    )
+    .addSeparator()
+    .addItem(
+      '0. Gerar cluster SEO',
+      'gerarClusterSeoSelecionado'
+    )
+    .addItem(
+      '0b. Criar pautas do cluster aprovado',
+      'criarPautasDoClusterSelecionado'
     )
     .addSeparator()
     .addItem(
