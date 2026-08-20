@@ -1914,6 +1914,37 @@ function instalarGatilhoImagens_() {
   }
 }
 
+// Permite pular a geração pelo Gemini quando alguém já soltou a imagem
+// manualmente na pasta do artigo: casa pelo nome esperado (mesmo nome
+// que a fila já grava em "Nome arquivo"), ignorando a extensão — assim
+// a pessoa pode subir .jpg/.png mesmo a fila esperando .webp. Sem isso
+// não dá pra reaproveitar imagem manual sem editar "Arquivo ID" à mão.
+function localizarImagemManualNaPasta_(pastaId, nomeArquivoEsperado) {
+  const base = String(nomeArquivoEsperado || '')
+    .replace(/\.[^.]+$/, '')
+    .toLowerCase();
+
+  if (!base) {
+    return null;
+  }
+
+  const pasta = DriveApp.getFolderById(pastaId);
+  const arquivos = pasta.getFiles();
+
+  while (arquivos.hasNext()) {
+    const arquivo = arquivos.next();
+    const nomeBase = String(arquivo.getName() || '')
+      .replace(/\.[^.]+$/, '')
+      .toLowerCase();
+
+    if (nomeBase === base) {
+      return arquivo;
+    }
+  }
+
+  return null;
+}
+
 function processarFilaImagens() {
   const planilha = SpreadsheetApp.getActiveSpreadsheet();
   const abaFila = planilha.getSheetByName(
@@ -1940,23 +1971,32 @@ function processarFilaImagens() {
         tarefa.arquivoId
       );
     } else {
-      const imagem = gerarImagemGemini_(
-        tarefa.prompt,
-        tarefa.proporcao
+      const manual = localizarImagemManualNaPasta_(
+        tarefa.pastaId,
+        tarefa.nomeArquivo
       );
 
-      const nomeArquivo = montarNomeArquivo_(
-        tarefa.nomeArquivo,
-        imagem.mimeType
-      );
+      if (manual) {
+        arquivo = manual;
+      } else {
+        const imagem = gerarImagemGemini_(
+          tarefa.prompt,
+          tarefa.proporcao
+        );
 
-      imagem.blob.setName(nomeArquivo);
+        const nomeArquivo = montarNomeArquivo_(
+          tarefa.nomeArquivo,
+          imagem.mimeType
+        );
 
-      const pasta = DriveApp.getFolderById(
-        tarefa.pastaId
-      );
+        imagem.blob.setName(nomeArquivo);
 
-      arquivo = pasta.createFile(imagem.blob);
+        const pasta = DriveApp.getFolderById(
+          tarefa.pastaId
+        );
+
+        arquivo = pasta.createFile(imagem.blob);
+      }
 
       abaFila
         .getRange(tarefa.linhaFila, 13)
