@@ -58,17 +58,6 @@ function topcValidarPrePublicacao_(contexto, envelope, midias) {
     throw new Error('O rascunho não possui blocos editoriais.');
   }
 
-  const refs = blocks
-    .filter(function(block) { return block.type === 'image'; })
-    .map(function(block) { return block.mediaKey; });
-
-  midias.forEach(function(media) {
-    if (refs.indexOf(media.mediaKey) === -1) {
-      throw new Error(
-        'Imagem não referenciada no envelope: ' + media.mediaKey
-      );
-    }
-  });
 }
 
 function topcPersistirVersaoSite_(aba, linha, updatedAt) {
@@ -324,3 +313,4 @@ function publicarArtigoSiteLinha_(aba, linha) {
     8
   );
 }
+
