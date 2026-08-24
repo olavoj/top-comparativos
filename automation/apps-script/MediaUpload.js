@@ -78,10 +78,11 @@ function enviarImagensSiteLinha_(aba, linha) {
   if (!slug) throw new Error('A pauta não possui Slug.');
   const sourceKey = 'pauta-' + id;
   enviarRascunhoSiteLinha_(aba, linha);
-  const midias = topcNormalizarMidiasPorArquivo_(topcObterMidiasConcluidas_(linha, slug));
-  if (!midias.length) throw new Error(topcDiagnosticarFilaDaPauta_(linha, slug));
+  const midiasConcluidas = topcNormalizarMidiasPorArquivo_(topcObterMidiasConcluidas_(linha, slug));
+  if (!midiasConcluidas.length) throw new Error(topcDiagnosticarFilaDaPauta_(linha, slug));
   const envelope = topcMontarEnvelopeLinha_(aba, linha);
   const referencedMediaKeys = envelope.document.blocks.filter(function(block) { return block.type === 'image'; }).map(function(block) { return block.mediaKey; });
+  const midias = midiasConcluidas.filter(function(media) { return referencedMediaKeys.indexOf(media.mediaKey) !== -1; });
   const resultados = [];
   midias.forEach(function(media) {
     const resultado = topcEnviarImagemSite_(sourceKey, media, referencedMediaKeys);
