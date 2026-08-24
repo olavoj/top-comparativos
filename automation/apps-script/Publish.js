@@ -301,6 +301,10 @@ function publicarArtigoSiteLinha_(aba, linha) {
 
   topcValidarRespostaPublicacao_(codigo, sourceKey, texto);
 
+  const resultado = JSON.parse(texto);
+  const updatedAt = resultado && resultado.article && resultado.article.updatedAt;
+  topcPersistirVersaoSite_(aba, linha, updatedAt);
+
   Logger.log(JSON.stringify({
     sourceKey: sourceKey,
     slug: contexto.slug,
