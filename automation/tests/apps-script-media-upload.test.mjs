@@ -133,3 +133,30 @@ test('sincroniza o rascunho atual antes de enviar qualquer imagem', () => {
   assert.deepEqual(ordem, ['rascunho', 'imagem']);
 });
 
+test('ignora mídias antigas da fila que não estão no envelope atual', () => {
+  const enviadas = [];
+  const arquivo = { getBlob: () => ({ getContentType: () => 'image/webp', getBytes: () => [1] }) };
+  const api = loadScripts([corePath, uploadPath], {
+    TOPC_SITE_AUTOMATION: { BASE_URL: 'https://example.test' },
+    SpreadsheetApp: { getActiveSpreadsheet: () => ({ toast() {} }) },
+    DriveApp: { getFileById: () => arquivo },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'secret' }) },
+    Utilities: { DigestAlgorithm: { SHA_256: 'SHA_256' }, computeDigest: () => Array(32).fill(1), getUuid: () => 'request-1' },
+    topcBytesParaHex_: () => '01'.repeat(32),
+    topcHmacSha256Hex_: () => 'f'.repeat(64),
+    topcObterMidiasConcluidas_: () => [
+      { mediaKey: 'capa.webp', fileId: 'capa', role: 'cover', position: 0 },
+      { mediaKey: 'sobra-antiga.webp', fileId: 'sobra', role: 'inline', position: 1 }
+    ],
+    topcMontarEnvelopeLinha_: () => ({ document: { blocks: [{ type: 'image', mediaKey: 'capa.webp' }] } }),
+    enviarRascunhoSiteLinha_() {},
+    UrlFetchApp: { fetch: (_url, options) => { enviadas.push(options.headers['x-media-key']); return { getResponseCode: () => 201, getContentText: () => '{}' }; } },
+    Logger: { log() {} }
+  });
+  const aba = { getLastColumn: () => 2, getRange: row => ({ getDisplayValues: () => row === 1 ? [['ID', 'Slug']] : [['19', 'slug']] }) };
+
+  api.enviarImagensSiteLinha_(aba, 20);
+
+  assert.deepEqual(enviadas, ['capa.webp']);
+});
+
