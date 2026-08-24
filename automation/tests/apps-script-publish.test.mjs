@@ -277,6 +277,7 @@ test('aceita apenas HTTP 200 e trunca resposta de erro', () => {
 test('publica automaticamente pela rota HMAC sem abrir confirmação', () => {
   let request;
   let toast;
+  let versaoPersistida;
   const headers = [
     'ID', 'Título', 'Tipo', 'Pilar relacionado', 'Palavra-chave principal',
     'Intenção', 'Categoria', 'Status', 'Prioridade', 'Data prevista', 'Slug',
@@ -293,8 +294,12 @@ test('publica automaticamente pela rota HMAC sem abrir confirmação', () => {
     getName: () => 'Pauta editorial',
     getActiveCell: () => ({ getRow: () => 2 }),
     getLastColumn: () => headers.length,
-    getRange: row => ({
-      getDisplayValues: () => [row === 1 ? headers : values]
+    getRange: (row, column) => ({
+      getDisplayValues: () => [row === 1 ? headers : values],
+      setNumberFormat: () => {},
+      setValue: value => {
+        if (row === 2 && column === 19) versaoPersistida = value;
+      }
     })
   };
   const spreadsheet = {
@@ -312,7 +317,7 @@ test('publica automaticamente pela rota HMAC sem abrir confirmação', () => {
       request = { path, sourceKey, body, contentType };
       return {
         getResponseCode: () => 200,
-        getContentText: () => '{"published":true}'
+        getContentText: () => '{"article":{"status":"published","updatedAt":"2026-08-24T02:30:28.341Z"}}'
       };
     },
     Logger: { log: () => {} }
@@ -327,6 +332,7 @@ test('publica automaticamente pela rota HMAC sem abrir confirmação', () => {
     contentType: 'application/json'
   });
   assert.match(toast[0], /publicado/i);
+  assert.equal(versaoPersistida, '2026-08-24T02:30:28.341Z');
 });
 
 test('registra publicação depois do upload no menu', () => {
