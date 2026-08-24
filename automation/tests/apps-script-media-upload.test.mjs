@@ -81,3 +81,55 @@ test('registra o comando separado de upload no menu', () => {
   assert.strictEqual(api.topcAdicionarUploadMenu_(menu), menu);
   assert.deepEqual(calls, [['separator'], ['6. Enviar imagens ao site', 'enviarImagensSiteSelecionadas']]);
 });
+
+test('sincroniza o rascunho atual antes de enviar qualquer imagem', () => {
+  const ordem = [];
+  const blob = {
+    getContentType: () => 'image/webp',
+    getBytes: () => [1, 2, 3]
+  };
+  const planilha = { toast() {} };
+  const aba = {
+    getLastColumn: () => 2,
+    getRange: row => ({
+      getDisplayValues: () => row === 1
+        ? [['ID', 'Slug']]
+        : [['19', 'ar-condicionado-split']]
+    })
+  };
+  const api = loadScripts([corePath, uploadPath], {
+    TOPC_SITE_AUTOMATION: { BASE_URL: 'https://example.test' },
+    SpreadsheetApp: { getActiveSpreadsheet: () => planilha },
+    DriveApp: { getFileById: () => ({ getBlob: () => blob }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'secret' }) },
+    Utilities: {
+      DigestAlgorithm: { SHA_256: 'SHA_256' },
+      computeDigest: () => Array(32).fill(1),
+      getUuid: () => 'request-1'
+    },
+    topcBytesParaHex_: () => '01'.repeat(32),
+    topcHmacSha256Hex_: () => 'f'.repeat(64),
+    topcObterMidiasConcluidas_: () => [{
+      mediaKey: 'imagem-principal-ar-condicionado-split.webp',
+      fileId: 'webp-real',
+      role: 'cover',
+      position: 0
+    }],
+    topcMontarEnvelopeLinha_: () => ({
+      document: { blocks: [{ type: 'image', mediaKey: 'imagem-principal-ar-condicionado-split.webp' }] }
+    }),
+    enviarRascunhoSiteLinha_: () => { ordem.push('rascunho'); },
+    UrlFetchApp: {
+      fetch: () => {
+        ordem.push('imagem');
+        return { getResponseCode: () => 201, getContentText: () => '{}' };
+      }
+    },
+    Logger: { log() {} }
+  });
+
+  api.enviarImagensSiteLinha_(aba, 20);
+
+  assert.deepEqual(ordem, ['rascunho', 'imagem']);
+});
+
