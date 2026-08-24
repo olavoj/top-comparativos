@@ -77,6 +77,7 @@ function enviarImagensSiteLinha_(aba, linha) {
   if (!id) throw new Error('A pauta não possui ID.');
   if (!slug) throw new Error('A pauta não possui Slug.');
   const sourceKey = 'pauta-' + id;
+  enviarRascunhoSiteLinha_(aba, linha);
   const midias = topcNormalizarMidiasPorArquivo_(topcObterMidiasConcluidas_(linha, slug));
   if (!midias.length) throw new Error(topcDiagnosticarFilaDaPauta_(linha, slug));
   const envelope = topcMontarEnvelopeLinha_(aba, linha);
@@ -92,3 +93,4 @@ function enviarImagensSiteLinha_(aba, linha) {
   planilha.toast(resultados.length + ' imagens processadas: ' + criadas + ' novas e ' + reutilizadas + ' reutilizadas.', 'Top Comparativos', 8);
   return resultados;
 }
+
