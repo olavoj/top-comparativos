@@ -240,13 +240,16 @@ test('rejeita rascunho sem blocos', () => {
   ), /blocos editoriais/);
 });
 
-test('rejeita mídia concluída sem referência no envelope', () => {
+test('ignora mídia antiga da fila que não está no envelope atual', () => {
   const api = loadPublish();
-  assert.throws(() => api.topcValidarPrePublicacao_(
+  assert.doesNotThrow(() => api.topcValidarPrePublicacao_(
     validContext,
     validEnvelope,
-    [{ mediaKey: 'outra.webp' }]
-  ), /não referenciada/);
+    [
+      { mediaKey: 'capa.webp' },
+      { mediaKey: 'editorial-antiga.webp' }
+    ]
+  ));
 });
 
 test('aceita contexto pronto para publicação', () => {
@@ -346,3 +349,4 @@ test('registra publicação depois do upload no menu', () => {
     ['7. Publicar artigo no site', 'publicarArtigoSiteSelecionado']
   ]);
 });
+
