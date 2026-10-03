@@ -3039,6 +3039,9 @@ function topcConverterDocumentoEditorial_(documento, midias) {
   const imagensDoDocumento = [];
   let posicaoDaCapa = 0;
 
+  const blocks = [];
+  const sources = [];
+
   let encontrouArtigo = false;
   let coletandoFontes = false;
   let titulo = '';
